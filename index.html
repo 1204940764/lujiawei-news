@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日快讯</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; background: #f5f5f5; color: #222; }
+
+        /* Header */
+        .header { background: #fff; border-bottom: 3px solid #d33; position: sticky; top: 0; z-index: 100; }
+        .header-inner { max-width: 1200px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+        .logo { font-size: 28px; font-weight: 900; color: #d33; letter-spacing: 2px; }
+        .logo span { color: #222; }
+        .nav { display: flex; gap: 20px; }
+        .nav a { text-decoration: none; color: #555; font-size: 15px; font-weight: 500; transition: color 0.2s; }
+        .nav a:hover { color: #d33; }
+        .header-right { font-size: 14px; color: #999; }
+
+        /* Breaking News */
+        .breaking { background: #d33; color: #fff; padding: 10px 0; overflow: hidden; }
+        .breaking-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; }
+        .breaking-label { background: #fff; color: #d33; font-weight: 900; font-size: 13px; padding: 2px 10px; border-radius: 3px; margin-right: 16px; flex-shrink: 0; }
+        .breaking-text { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Main Container */
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+        /* Featured Article */
+        .featured { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 36px; }
+        .featured-main { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .featured-main:hover { transform: translateY(-3px); box-shadow: 0 6px 24px rgba(0,0,0,0.12); }
+        .featured-img { height: 280px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 48px; }
+        .featured-body { padding: 24px; }
+        .featured-tag { display: inline-block; background: #d33; color: #fff; font-size: 12px; padding: 3px 10px; border-radius: 4px; margin-bottom: 12px; }
+        .featured-body h2 { font-size: 24px; margin-bottom: 12px; line-height: 1.3; }
+        .featured-body p { color: #666; font-size: 15px; line-height: 1.7; }
+        .featured-meta { margin-top: 16px; font-size: 13px; color: #999; }
+
+        .featured-side { display: flex; flex-direction: column; gap: 12px; }
+        .side-item { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.06); cursor: pointer; transition: background 0.2s; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        .side-item:hover { background: #fafafa; }
+        .side-item .tag { font-size: 12px; color: #d33; font-weight: 600; margin-bottom: 6px; }
+        .side-item h3 { font-size: 15px; line-height: 1.5; }
+        .side-item .meta { font-size: 12px; color: #999; margin-top: 8px; }
+
+        /* Section Title */
+        .section-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; padding-left: 14px; border-left: 4px solid #d33; }
+
+        /* News Grid */
+        .news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+        .news-card { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 8px rgba(0,0,0,0.06); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .news-card:hover { transform: translateY(-3px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        .card-img { height: 180px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 36px; }
+        .card-body { padding: 18px; }
+        .card-tag { font-size: 12px; color: #d33; font-weight: 600; margin-bottom: 8px; }
+        .card-body h3 { font-size: 17px; line-height: 1.4; margin-bottom: 10px; }
+        .card-body p { font-size: 14px; color: #777; line-height: 1.6; }
+        .card-meta { font-size: 12px; color: #bbb; margin-top: 12px; }
+
+        .img-tech { background: linear-gradient(135deg, #0c3483 0%, #a2b6df 100%); }
+        .img-sports { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .img-finance { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .img-science { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .img-world { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .img-culture { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
+
+        /* Footer */
+        .footer { background: #222; color: #999; padding: 32px 24px; margin-top: 40px; }
+        .footer-inner { max-width: 1200px; margin: 0 auto; text-align: center; font-size: 14px; line-height: 2; }
+        .footer-inner span { color: #d33; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .featured { grid-template-columns: 1fr; }
+            .news-grid { grid-template-columns: 1fr; }
+            .nav { display: none; }
+        }
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .news-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">每日<span>快讯</span></div>
+            <nav class="nav">
+                <a href="#">首页</a>
+                <a href="#">科技</a>
+                <a href="#">财经</a>
+                <a href="#">体育</a>
+                <a href="#">科学</a>
+                <a href="#">文化</a>
+            </nav>
+            <div class="header-right">2026年5月9日</div>
+        </div>
+    </header>
+
+    <!-- Breaking News -->
+    <div class="breaking">
+        <div class="breaking-inner">
+            <span class="breaking-label">快讯</span>
+            <span class="breaking-text">全球 AI 开发者大会今日开幕，最新大模型技术引发行业关注</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+
+        <!-- Featured -->
+        <div class="featured">
+            <div class="featured-main">
+                <div class="featured-img">📰</div>
+                <div class="featured-body">
+                    <span class="featured-tag">头条</span>
+                    <h2>全球 AI 开发者大会盛大开幕，多款重磅产品亮相</h2>
+                    <p>为期三天的全球 AI 开发者大会今日在北京国家会议中心拉开帷幕。来自全球 80 多个国家和地区的数万名开发者、研究人员和企业代表参会。大会首日发布了多款AI大模型产品，涵盖医疗、教育、编程等领域。</p>
+                    <div class="featured-meta">2026年5月9日 · 科技</div>
+                </div>
+            </div>
+            <div class="featured-side">
+                <div class="side-item">
+                    <span class="tag">财经</span>
+                    <h3>央行发布最新货币政策报告，释放积极信号</h3>
+                    <span class="meta">15分钟前</span>
+                </div>
+                <div class="side-item">
+                    <span class="tag">体育</span>
+                    <h3>中国女排三连胜，强势晋级世锦赛八强</h3>
+                    <span class="meta">32分钟前</span>
+                </div>
+                <div class="side-item">
+                    <span class="tag">科技</span>
+                    <h3>新一代量子计算机突破 1000 量子比特里程碑</h3>
+                    <span class="meta">1小时前</span>
+                </div>
+                <div class="side-item">
+                    <span class="tag">科学</span>
+                    <h3>国际空间站成功完成第 200 次舱外维修任务</h3>
+                    <span class="meta">2小时前</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Latest News -->
+        <h2 class="section-title">最新资讯</h2>
+        <div class="news-grid">
+            <div class="news-card">
+                <div class="card-img img-tech">🚀</div>
+                <div class="card-body">
+                    <div class="card-tag">科技</div>
+                    <h3>国产芯片取得重大突破，7nm 工艺良率达国际主流水平</h3>
+                    <p>国内半导体龙头企业宣布，其自主研发的 7nm 制程工艺良率已提升至 90% 以上，达到国际同类产品水平。</p>
+                    <div class="card-meta">2026年5月9日</div>
+                </div>
+            </div>
+            <div class="news-card">
+                <div class="card-img img-finance">📈</div>
+                <div class="card-body">
+                    <div class="card-tag">财经</div>
+                    <h3>A 股三大指数集体收涨，成交额突破万亿</h3>
+                    <p>受多重利好因素影响，A 股市场今日全面走强。沪指上涨 1.8%，深成指上涨 2.3%，创业板指上涨 2.8%。</p>
+                    <div class="card-meta">2026年5月9日</div>
+                </div>
+            </div>
+            <div class="news-card">
+                <div class="card-img img-sports">⚽</div>
+                <div class="card-body">
+                    <div class="card-tag">体育</div>
+                    <h3>欧冠决赛对阵出炉：皇马 vs 曼城巅峰对决</h3>
+                    <p>欧冠半决赛次回合战罢，皇家马德里与曼彻斯特城分别淘汰各自对手，会师将于本月末进行的决赛。</p>
+                    <div class="card-meta">2026年5月9日</div>
+                </div>
+            </div>
+            <div class="news-card">
+                <div class="card-img img-science">🔬</div>
+                <div class="card-body">
+                    <div class="card-tag">科学</div>
+                    <h3>研究人员发现新型可再生能源转化效率突破 40%</h3>
+                    <p>国际联合研究团队在太阳能转化领域取得里程碑式进展，新型钙钛矿电池转化效率首次突破 40% 大关。</p>
+                    <div class="card-meta">2026年5月9日</div>
+                </div>
+            </div>
+            <div class="news-card">
+                <div class="card-img img-world">🌍</div>
+                <div class="card-body">
+                    <div class="card-tag">国际</div>
+                    <h3>联合国气候峰会达成新减排协议，195 国签署</h3>
+                    <p>经过两周的紧张谈判，联合国气候峰会在日内瓦落下帷幕，195 个缔约国共同签署了新的减排承诺协议。</p>
+                    <div class="card-meta">2026年5月9日</div>
+                </div>
+            </div>
+            <div class="news-card">
+                <div class="card-img img-culture">🎭</div>
+                <div class="card-body">
+                    <div class="card-tag">文化</div>
+                    <h3>故宫博物院新馆正式开放，万余件珍贵文物首次展出</h3>
+                    <p>故宫博物院北院区今日正式对公众开放，首期展览汇集了超过 12000 件珍贵文物，其中近七成为首次面向公众展出。</p>
+                    <div class="card-meta">2026年5月9日</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-inner">
+            <p>每日快讯 © 2026 版权所有</p>
+            <p>本页面为演示页面，内容仅供展示</p>
+            <p>联系邮箱：<span>contact@dailynews.demo</span></p>
+        </div>
+    </footer>
+
+</body>
+</html>
