@@ -101,7 +101,8 @@
         }
 
         /* ===== Subject Grid ===== */
-        .subject-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 32px; }
+        .subject-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 32px; }
+        @media (max-width: 600px) { .subject-grid { grid-template-columns: 1fr; } }
         .subject-card {
             background: #fff;
             border-radius: 16px;
@@ -289,7 +290,7 @@
     <div class="subject-grid">
         <div class="subject-card subject-politics">
             <div class="icon">📖</div>
-            <span class="score-badge">成绩未公布</span>
+            <span class="score-badge">67 分</span>
             <h3>政治</h3>
             <p>9月开始，徐涛课程 + 肖1000 + 模拟卷 + 澄潇宇一页纸。主观题背肖四即可，上海地区均分27。</p>
         </div>
@@ -307,7 +308,7 @@
         </div>
         <div class="subject-card subject-408">
             <div class="icon">🖥️</div>
-            <span class="score-badge">成绩未公布</span>
+            <span class="score-badge">129 分</span>
             <h3>408 计算机专业基础</h3>
             <p>1月开始，跟王道。三刷视频 + 三刷选择题 + 思维导图。后期每天翻思维导图 + 看错题。</p>
         </div>
