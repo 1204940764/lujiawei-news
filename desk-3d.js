@@ -2,9 +2,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=19';
-import { deskSound } from './desk-sound.js?v=19';
-import { createLibraryEnvironment } from './library-env.js?v=19';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=20';
+import { deskSound } from './desk-sound.js?v=20';
+import { createLibraryEnvironment } from './library-env.js?v=20';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -167,6 +171,18 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.12;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 canvasContainer.appendChild(renderer.domElement);
+
+// ===== Selective HDR UnrealBloom Post-Processing (Optical Glow on Fireworks, City Lights & Chandeliers; Zero Blur on Book Text!) =====
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(Math.floor(window.innerWidth * 0.5), Math.floor(window.innerHeight * 0.5)),
+  0.46, // Subtle cinematic bloom strength
+  0.58, // Soft optical lens radius
+  0.92  // High HDR threshold so ONLY true light sources & fireworks bloom, keeping book paper/text 100% razor-sharp!
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
 
 // Studio PMREM Environment for realistic PBR reflections on brass, ceramic, wood & foil
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -2291,6 +2307,8 @@ function handleViewportResize() {
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, viewportPreset.isMobile ? 1.75 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.resolution.set(Math.floor(window.innerWidth * 0.5), Math.floor(window.innerHeight * 0.5));
 
   if (!activeItemId) {
     animateCameraTo(DEFAULT_CAM_POS, DEFAULT_TARGET, 320);
@@ -2565,7 +2583,7 @@ function animate(now = performance.now()) {
   } else {
     controls.update();
   }
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 updateLightingMode();
