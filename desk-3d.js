@@ -3,9 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=22';
-import { deskSound } from './desk-sound.js?v=22';
-import { createLibraryEnvironment } from './library-env.js?v=22';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=26';
+import { deskSound } from './desk-sound.js?v=26';
+import { createLibraryEnvironment } from './library-env.js?v=26';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -1749,15 +1749,16 @@ peopleToggleBtn.addEventListener('click', () => {
   );
 });
 
-// ===== Stage / Daylight Lighting Toggle =====
+// ===== Night-Only Warm Desk Lamp Toggle (Outside Always Hopeful Night City & Fireworks!) =====
 let isLampOn = true;
 
 function updateLightingMode() {
-  libraryEnv.setLightingMode(isLampOn);
+  libraryEnv.setLightingMode(true);
+  scene.background.copy(NIGHT_BG);
+  scene.fog.color.copy(NIGHT_BG);
+  document.body.classList.remove('day-mode');
+
   if (isLampOn) {
-    // Balanced, warm, hopeful evening library lighting — crisp text & rich contrast, zero white blowout!
-    scene.background.copy(NIGHT_BG);
-    scene.fog.color.copy(NIGHT_BG);
     scene.environmentIntensity = 0.32;
     stageKeySpot.intensity = 28;
     stageRimSpot.intensity = 16;
@@ -1773,25 +1774,23 @@ function updateLightingMode() {
     fillLight.intensity = 0.28;
     fillLight.color.set('#d2e2ff');
     rightWarmFill.intensity = 1.5;
-    document.body.classList.remove('day-mode');
   } else {
-    scene.background.copy(DAY_BG);
-    scene.fog.color.copy(DAY_BG);
-    scene.environmentIntensity = 0.62;
-    stageKeySpot.intensity = 0;
-    stageRimSpot.intensity = 0;
-    stageBeamMat.opacity = 0;
+    // Desk lamp switched off — still warm, hopeful evening library ambiance!
+    scene.environmentIntensity = 0.26;
+    stageKeySpot.intensity = 14;
+    stageRimSpot.intensity = 10;
     lampSpot.intensity = 0;
     lampBulbLight.intensity = 0;
-    bulbMat.emissiveIntensity = 0.08;
-    touchRingMat.emissiveIntensity = 0.1;
-    moteMat.opacity = 0.12;
-    ambientLight.intensity = 0.88;
-    hemiLight.intensity = 0.85;
-    fillLight.intensity = 1.5;
-    fillLight.color.set('#fff3df');
-    rightWarmFill.intensity = 0.55;
-    document.body.classList.add('day-mode');
+    bulbMat.emissiveIntensity = 0.1;
+    touchRingMat.emissiveIntensity = 0.15;
+    moteMat.opacity = 0.25;
+    ambientLight.intensity = 0.28;
+    hemiLight.color.set('#ffe0c2');
+    hemiLight.groundColor.set('#3d291c');
+    hemiLight.intensity = 0.36;
+    fillLight.intensity = 0.26;
+    fillLight.color.set('#c4d8ff');
+    rightWarmFill.intensity = 0.85;
   }
 }
 

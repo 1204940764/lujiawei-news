@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-// ===== Photorealistic Grand University Library Hall with Real Poly Haven CC0 GLTF Models + Real Shanghai Night Skyline + Streaked Fireworks =====
+// ===== Photorealistic Grand University Library Hall with Real 3D GLTF Models (Poly Haven + VirtualCity + Mixamo Students) & Streaked Fireworks =====
 export function createLibraryEnvironment(scene, maxAniso = 8) {
   const libGroup = new THREE.Group();
   scene.add(libGroup);
@@ -369,24 +370,182 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     libGroup.add(m);
   });
 
-  // ===== 5. REAL 360° PHOTOGRAPHED SHANGHAI BUND NIGHT SKYLINE PANORAMA (Poly Haven CC0!) =====
+  // ===== 5. REAL 3D NIGHT CITYSCAPE (VirtualCity.glb) + HOPEFUL STARRY NIGHT SKY =====
   const outsideGroup = new THREE.Group();
   libGroup.add(outsideGroup);
 
-  const shanghaiTex = texLoader.load('assets/sky/shanghai_bund.jpg');
-  shanghaiTex.colorSpace = THREE.SRGBColorSpace;
-  shanghaiTex.anisotropy = maxAniso;
+  // Rich hopeful night sky dome with twilight horizon glow, stars & crescent moon
+  function createNightSkyTexture() {
+    const c = document.createElement('canvas');
+    c.width = 1024;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, 512);
+    skyGrad.addColorStop(0.0, '#060b1a');
+    skyGrad.addColorStop(0.26, '#0d1a38');
+    skyGrad.addColorStop(0.46, '#1a2f5e');
+    skyGrad.addColorStop(0.56, '#2b3e6e');
+    skyGrad.addColorStop(0.63, '#544a6e');
+    skyGrad.addColorStop(0.70, '#7d5b5e');
+    skyGrad.addColorStop(0.78, '#20263b');
+    skyGrad.addColorStop(1.0, '#0a0e1a');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Subtle warm city horizon haze
+    const haze = ctx.createRadialGradient(512, 330, 18, 512, 330, 340);
+    haze.addColorStop(0.0, 'rgba(255, 196, 130, 0.34)');
+    haze.addColorStop(0.45, 'rgba(130, 148, 220, 0.16)');
+    haze.addColorStop(1.0, 'rgba(20, 30, 60, 0.0)');
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, 120, 1024, 340);
+
+    // Crisp stars in upper night sky
+    let seed = 4219;
+    for (let i = 0; i < 420; i++) {
+      seed = (seed * 16807) % 2147483647;
+      const sx = (seed % 1024);
+      seed = (seed * 16807) % 2147483647;
+      const sy = (seed % 260);
+      seed = (seed * 16807) % 2147483647;
+      const r = 0.5 + (seed % 100) / 85;
+      const alpha = 0.35 + (seed % 65) / 100;
+      ctx.fillStyle = i % 9 === 0 ? `rgba(255,235,195,${alpha})` : `rgba(220,236,255,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
 
   const skyDomeMat = new THREE.MeshBasicMaterial({
-    map: shanghaiTex,
+    map: createNightSkyTexture(),
     side: THREE.BackSide,
     fog: false
   });
-  const skyDome = new THREE.Mesh(new THREE.SphereGeometry(125, 48, 28), skyDomeMat);
-  // Shift horizon slightly lower so the library overlooks the Huangpu River, Lujiazui skyscrapers & fireworks from an upper floor (hiding ground boardwalk crowd!)
-  skyDome.position.set(0, -13.5, -10.0);
-  skyDome.rotation.y = Math.PI * 0.52;
+  const skyDome = new THREE.Mesh(new THREE.SphereGeometry(165, 40, 24), skyDomeMat);
+  skyDome.position.set(0, 2.0, -10.0);
   outsideGroup.add(skyDome);
+
+  // Crisp high-resolution nighttime skyscraper window grid texture (realistic lit & unlit floors, warm amber & white lights)
+  function createNightWindowEmissiveTex() {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const cols = 16;
+    const rows = 28;
+    const cw = 512 / cols;
+    const rh = 512 / rows;
+    let seed = 9187;
+    const warmTones = ['#ffe5a8', '#ffd27a', '#fff6dc', '#b4daff', '#ffc86b', '#fff0cc'];
+
+    for (let r = 0; r < rows; r++) {
+      // Occasional dark mechanical floor every ~8 stories
+      if (r % 9 === 4) continue;
+      for (let col = 0; col < cols; col++) {
+        seed = (seed * 16807) % 2147483647;
+        const lit = (seed % 100) < 38;
+        if (!lit) continue;
+        ctx.fillStyle = warmTones[seed % warmTones.length];
+        // Clean horizontal modern office/apartment window pane with dark structural mullions
+        ctx.fillRect(col * cw + 5, r * rh + 4, cw - 10, rh - 8);
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 4);
+    tex.anisotropy = maxAniso;
+    return tex;
+  }
+
+  const nightWinEmissiveTex = createNightWindowEmissiveTex();
+
+  // Subtle moonlight + cool architectural rim so dark night skyscrapers have crisp 3D depth
+  const cityMoonLight = new THREE.DirectionalLight('#7ea8ff', 0.75);
+  cityMoonLight.position.set(18, 44, FRONT_Z - 10);
+  outsideGroup.add(cityMoonLight);
+
+  // Load REAL 3D City Model (Khronos VirtualCity.glb) — keep ONLY real 3D skyscrapers & buildings, strip skybox/alien/ships!
+  gltfLoader.load('assets/models/VirtualCity.glb', (gltf) => {
+    const rawCity = gltf.scene;
+    const KEEP_BUILDING_PREFIXES = ['skscr', 'sc_scrap', 'tower', 'tow0', 'build', 'b01', 'b02', 'b03'];
+
+    // Step 1: Hide skbox (orange dome!), ground plane, sci-fi ships/helicopters/cameras — keep ONLY real 3D buildings!
+    rawCity.traverse((child) => {
+      if (!child.isMesh) return;
+      const n = (child.name || '').toLowerCase();
+      const parentName = (child.parent && child.parent.name ? child.parent.name : '').toLowerCase();
+      const isBuilding = KEEP_BUILDING_PREFIXES.some((p) => n.includes(p) || parentName.includes(p));
+      if (!isBuilding) {
+        child.visible = false;
+        return;
+      }
+      child.visible = true;
+    });
+
+    // Step 2: Recompute tight bounding box strictly over the visible 3D skyscrapers
+    rawCity.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    rawCity.traverse((child) => {
+      if (child.isMesh && child.visible) {
+        box.expandByObject(child);
+      }
+    });
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+
+    const targetHeight = 38.0;
+    const scale = targetHeight / Math.max(size.y, 0.001);
+    rawCity.scale.setScalar(scale);
+    rawCity.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+
+    // Step 3: Style every 3D skyscraper as a sleek dark-night architectural tower with crisp glowing windows!
+    let bIdx = 0;
+    rawCity.traverse((child) => {
+      if (!child.isMesh || !child.visible) return;
+      const isWarm = bIdx % 4 !== 0;
+      const towerMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(bIdx % 3 === 0 ? '#121a2d' : (bIdx % 3 === 1 ? '#182136' : '#141926')),
+        roughness: 0.42,
+        metalness: 0.48,
+        emissive: new THREE.Color(isWarm ? '#ffd285' : '#b8dcff'),
+        emissiveMap: nightWinEmissiveTex,
+        emissiveIntensity: 1.2 + (bIdx % 3) * 0.2,
+        fog: false
+      });
+      bIdx++;
+      child.material = towerMat;
+    });
+
+    const cityTemplate = new THREE.Group();
+    cityTemplate.add(rawCity);
+
+    // 3 monumental, properly-proportioned skyscraper clusters across the panoramic window (no occluded back duplicates!)
+    const cityPlacements = [
+      { x: 0,    y: FLOOR_Y - 18.0, z: FRONT_Z - 66, rotY: 0.22,           s: 1.05 },
+      { x: -58,  y: FLOOR_Y - 19.0, z: FRONT_Z - 70, rotY: Math.PI * 0.52, s: 1.12 },
+      { x: 58,   y: FLOOR_Y - 19.0, z: FRONT_Z - 70, rotY: -Math.PI * 0.48, s: 1.10 }
+    ];
+    cityPlacements.forEach(({ x, y, z, rotY, s }) => {
+      const block = cityTemplate.clone(true);
+      block.position.set(x, y, z);
+      block.rotation.y = rotY;
+      block.scale.setScalar(s);
+      outsideGroup.add(block);
+    });
+  });
 
   // ===== 6. Warm, Balanced Library Hall Lighting + REAL Poly Haven Chandelier_01 Models! =====
   const frontHallLight = new THREE.PointLight('#ffd294', 44, 52, 1.25);
@@ -411,24 +570,36 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     });
   });
 
-  // ===== 7. REAL Poly Haven WoodenTable_01 & WoodenChair_01 Across the Reading Hall! =====
+  // ===== 7. REAL Poly Haven WoodenTable_01 & WoodenChair_01 Across the Reading Hall (Generous Grand Scale + Books!) =====
+  const TABLE_W = 7.4;
+  const TABLE_H = 2.95;
+  const TABLE_D = 3.0;
+  const CHAIR_DX = 1.85;
+  const CHAIR_DZ = 1.92;
+
   const tablePositions = [
-    [-9.2, -7.2], [9.2, -7.2],
-    [-9.2, -14.2], [0.0, -14.2], [9.2, -14.2],
-    [-9.2, -21.0], [0.0, -21.0], [9.2, -21.0],
-    [-11.5, 0.4], [11.5, 0.4],
-    [-9.2, 8.2], [0.0, 8.2], [9.2, 8.2],
-    [-9.2, 15.2], [0.0, 15.2], [9.2, 15.2],
-    [-9.2, 22.0], [9.2, 22.0]
+    [-10.2, -7.2], [10.2, -7.2],
+    [-10.2, -14.6], [0.0, -14.6], [10.2, -14.6],
+    [-10.2, -21.8], [0.0, -21.8], [10.2, -21.8],
+    [-12.2, 0.4], [12.2, 0.4],
+    [-10.2, 8.6], [0.0, 8.6], [10.2, 8.6],
+    [-10.2, 16.0], [0.0, 16.0], [10.2, 16.0],
+    [-10.2, 23.0], [10.2, 23.0]
   ];
 
   // Register collision boxes immediately (even while GLTF streams in!)
-  tablePositions.forEach(([x, z]) => registerObstacle(x, z, 3.45, 2.15));
+  tablePositions.forEach(([x, z]) => registerObstacle(x, z, 4.1, 2.55));
 
-  // Add subtle banker lamps & books on top of each real wooden reading table
-  const lampStemGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.68, 8);
-  const lampShadeGeo = new THREE.BoxGeometry(0.52, 0.15, 0.22);
-  const openBookGeo = new THREE.BoxGeometry(0.72, 0.04, 0.52);
+  // Banker lamps + rich stacks of textbooks & open study notebooks on every reading table
+  const lampStemGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.74, 8);
+  const lampShadeGeo = new THREE.BoxGeometry(0.58, 0.17, 0.25);
+  const openBookGeo = new THREE.BoxGeometry(0.84, 0.05, 0.58);
+  const closedBookGeo = new THREE.BoxGeometry(0.52, 0.10, 0.72);
+  const smallBookGeo = new THREE.BoxGeometry(0.46, 0.09, 0.64);
+  const bookMatNavy = new THREE.MeshStandardMaterial({ color: '#264166', roughness: 0.78 });
+  const bookMatBurgundy = new THREE.MeshStandardMaterial({ color: '#6e2824', roughness: 0.78 });
+  const bookMatForest = new THREE.MeshStandardMaterial({ color: '#284d3b', roughness: 0.78 });
+  const bookMatOchre = new THREE.MeshStandardMaterial({ color: '#8f6332', roughness: 0.78 });
 
   gltfLoader.load('assets/models/WoodenTable_01/WoodenTable_01_1k.gltf', (gltf) => {
     const raw = gltf.scene;
@@ -438,31 +609,57 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     box.getSize(size);
     box.getCenter(center);
 
-    // Scale to realistic library reading table dimensions (width ~6.2, height ~2.68, depth ~2.4)
-    const sx = 6.2 / Math.max(size.x, 0.001);
-    const sy = 2.68 / Math.max(size.y, 0.001);
-    const sz = 2.4 / Math.max(size.z, 0.001);
+    const sx = TABLE_W / Math.max(size.x, 0.001);
+    const sy = TABLE_H / Math.max(size.y, 0.001);
+    const sz = TABLE_D / Math.max(size.z, 0.001);
 
     const template = new THREE.Group();
     raw.scale.set(sx, sy, sz);
     raw.position.set(-center.x * sx, -box.min.y * sy, -center.z * sz);
     template.add(raw);
 
-    // Classic green library banker lamps & open books on each real wooden table
-    [-1.55, 1.55].forEach((lx) => {
+    // Classic green library banker lamps along the table centerline
+    [-CHAIR_DX, CHAIR_DX].forEach((lx) => {
       const stem = new THREE.Mesh(lampStemGeo, brassMat);
-      stem.position.set(lx, 2.68 + 0.34, 0);
+      stem.position.set(lx, TABLE_H + 0.37, 0);
       template.add(stem);
       const shade = new THREE.Mesh(lampShadeGeo, lampGreenShadeMat);
-      shade.position.set(lx, 2.68 + 0.72, 0);
+      shade.position.set(lx, TABLE_H + 0.78, 0);
       template.add(shade);
     });
-    const b1 = new THREE.Mesh(openBookGeo, paperBookMat);
-    b1.position.set(-1.55, 2.71, 0.62);
-    template.add(b1);
-    const b2 = new THREE.Mesh(openBookGeo, paperBookMat);
-    b2.position.set(1.55, 2.71, -0.62);
-    template.add(b2);
+
+    // Open study notebooks & textbook stacks at each seat on every reading table!
+    const topY = TABLE_H;
+    // Open notebooks in front of all 4 seats
+    [
+      [-CHAIR_DX, 0.82, 0.04],
+      [CHAIR_DX, 0.82, -0.05],
+      [-CHAIR_DX, -0.82, -0.04],
+      [CHAIR_DX, -0.82, 0.06]
+    ].forEach(([bx, bz, ry]) => {
+      const nb = new THREE.Mesh(openBookGeo, paperBookMat);
+      nb.position.set(bx, topY + 0.028, bz);
+      nb.rotation.y = ry;
+      template.add(nb);
+    });
+
+    // Stacked hardcover textbooks scattered naturally across each table
+    const stacks = [
+      { x: -CHAIR_DX - 0.85, z: 0.55, mats: [bookMatNavy, bookMatOchre] },
+      { x: CHAIR_DX + 0.88, z: 0.62, mats: [bookMatBurgundy, bookMatForest, bookMatNavy] },
+      { x: -0.18, z: 0.48, mats: [bookMatForest, bookMatBurgundy] },
+      { x: 0.28, z: -0.52, mats: [bookMatOchre, bookMatNavy] },
+      { x: -CHAIR_DX - 0.82, z: -0.64, mats: [bookMatBurgundy, bookMatOchre] },
+      { x: CHAIR_DX + 0.85, z: -0.58, mats: [bookMatNavy, bookMatForest] }
+    ];
+    stacks.forEach((st) => {
+      st.mats.forEach((mat, i) => {
+        const bk = new THREE.Mesh(i === 0 ? closedBookGeo : smallBookGeo, mat);
+        bk.position.set(st.x + (i % 2) * 0.04, topY + 0.05 + i * 0.095, st.z);
+        bk.rotation.y = (i * 0.14 - 0.08) + (st.x * 0.07);
+        template.add(bk);
+      });
+    });
 
     tablePositions.forEach(([x, z]) => {
       const t = template.clone(true);
@@ -471,15 +668,15 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     });
   });
 
-  // Load REAL Poly Haven WoodenChair_01 (4 sculpted chairs per reading table!)
+  // Load REAL Poly Haven WoodenChair_01 (4 larger sculpted chairs per reading table!)
   gltfLoader.load('assets/models/WoodenChair_01/WoodenChair_01_1k.gltf', (gltf) => {
-    const template = normalizeGltf(gltf.scene, 2.75);
+    const template = normalizeGltf(gltf.scene, 3.28);
     tablePositions.forEach(([x, z]) => {
       [
-        [x - 1.55, z + 1.48, Math.PI],
-        [x + 1.55, z + 1.48, Math.PI],
-        [x - 1.55, z - 1.48, 0],
-        [x + 1.55, z - 1.48, 0]
+        [x - CHAIR_DX, z + CHAIR_DZ, Math.PI],
+        [x + CHAIR_DX, z + CHAIR_DZ, Math.PI],
+        [x - CHAIR_DX, z - CHAIR_DZ, 0],
+        [x + CHAIR_DX, z - CHAIR_DZ, 0]
       ].forEach(([cx, cz, rotY]) => {
         const chair = template.clone(true);
         chair.position.set(cx, FLOOR_Y, cz);
@@ -489,107 +686,113 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     });
   });
 
-  // ===== 8. Toggleable Hard-Working Students (Cleanly Seated Behind Chairs — Zero Leg Clipping!) =====
+  // ===== 8. Toggleable Real 3D Studying Students (Downloaded ReadyPlayerMe student_avatar.glb — Zero Clipping!) =====
   const studentsGroup = new THREE.Group();
   libGroup.add(studentsGroup);
   const animatedStudents = [];
 
-  const skinMat = new THREE.MeshStandardMaterial({ color: '#ecc8ae', roughness: 0.65 });
-  const headphoneBandMat = new THREE.MeshStandardMaterial({ color: '#242428', roughness: 0.4 });
-  const torsoGeo = new THREE.CylinderGeometry(0.30, 0.34, 1.12, 14);
-  const shoulderGeo = new THREE.SphereGeometry(0.32, 14, 10);
-  const headGeo = new THREE.SphereGeometry(0.25, 16, 14);
-  const hairGeo = new THREE.SphereGeometry(0.265, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62);
-  const armGeo = new THREE.CylinderGeometry(0.08, 0.07, 0.88, 10);
-  const bandGeo = new THREE.TorusGeometry(0.275, 0.024, 8, 18, Math.PI);
-  const cupGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.055, 10);
+  // Exact chair-linked seats derived directly from tablePositions + CHAIR_DX/CHAIR_DZ so students align 100% with their chairs!
+  const studentSeats = [
+    { tx: -10.2, tz: -7.2,  sx: +1, sz: -1, rotY: 0,       topTint: '#3e5c76', bottomTint: '#2b323d', hatTint: '#232830' },
+    { tx: 10.2,  tz: -7.2,  sx: -1, sz: +1, rotY: Math.PI, topTint: '#7a3e38', bottomTint: '#292b30', hatTint: '#332824' },
+    { tx: 10.2,  tz: -7.2,  sx: +1, sz: -1, rotY: 0,       topTint: '#486058', bottomTint: '#32302d', hatTint: '#242b28' },
+    { tx: 0.0,   tz: -14.6, sx: -1, sz: +1, rotY: Math.PI, topTint: '#a6825c', bottomTint: '#2d3540', hatTint: '#2b2520' },
+    { tx: 0.0,   tz: -14.6, sx: +1, sz: -1, rotY: 0,       topTint: '#5d4a66', bottomTint: '#272a33', hatTint: '#25222c' },
+    { tx: -10.2, tz: -21.8, sx: +1, sz: +1, rotY: Math.PI, topTint: '#56684f', bottomTint: '#2f3238', hatTint: '#242923' },
+    { tx: 10.2,  tz: -21.8, sx: -1, sz: +1, rotY: Math.PI, topTint: '#8c5a44', bottomTint: '#2a2e36', hatTint: '#2d2420' },
+    { tx: -10.2, tz: 8.6,   sx: +1, sz: +1, rotY: Math.PI, topTint: '#415b76', bottomTint: '#282c34', hatTint: '#202630' },
+    { tx: 10.2,  tz: 8.6,   sx: +1, sz: +1, rotY: Math.PI, topTint: '#8c4c3d', bottomTint: '#2c2f36', hatTint: '#2c2220' }
+  ];
 
-  function createSeatedStudent({ x, z, rotY, sweaterColor, hairColor, hasHeadphones = false }) {
-    const stu = new THREE.Group();
-    // Offset 0.30 forward toward the table so the carved WoodenChair_01 backrest never clips through the student's back!
-    const forwardZ = Math.cos(rotY) * 0.30;
-    stu.position.set(x, FLOOR_Y + 1.48, z + forwardZ);
-    stu.rotation.y = rotY;
+  gltfLoader.load('assets/models/student_avatar.glb', (gltf) => {
+    const src = gltf.scene;
+    const rawBox = new THREE.Box3().setFromObject(src);
+    const rawSize = new THREE.Vector3();
+    rawBox.getSize(rawSize);
+    // Natural human scale matching the enlarged 2.95-tall reading tables & 3.28-tall wooden chairs
+    const baseScale = 4.45 / Math.max(rawSize.y, 0.001);
 
-    const sweaterMat = new THREE.MeshStandardMaterial({ color: sweaterColor, roughness: 0.86 });
-    const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.68 });
+    studentSeats.forEach((seat, idx) => {
+      const avatar = SkeletonUtils.clone(src);
+      const scaleVar = 0.96 + (idx % 4) * 0.02;
+      avatar.scale.setScalar(baseScale * scaleVar);
 
-    const torsoPivot = new THREE.Group();
-    torsoPivot.rotation.x = 0.24;
-    stu.add(torsoPivot);
-
-    const torso = new THREE.Mesh(torsoGeo, sweaterMat);
-    torso.position.y = 0.54;
-    torsoPivot.add(torso);
-
-    const shoulders = new THREE.Mesh(shoulderGeo, sweaterMat);
-    shoulders.scale.set(1.22, 0.54, 0.72);
-    shoulders.position.y = 1.04;
-    torsoPivot.add(shoulders);
-
-    const headPivot = new THREE.Group();
-    headPivot.position.set(0, 1.28, 0.06);
-    headPivot.rotation.x = 0.32;
-    torsoPivot.add(headPivot);
-
-    headPivot.add(new THREE.Mesh(headGeo, skinMat));
-
-    const hair = new THREE.Mesh(hairGeo, hairMat);
-    hair.position.set(0, 0.03, -0.02);
-    hair.rotation.x = -0.25;
-    headPivot.add(hair);
-
-    if (hasHeadphones) {
-      const band = new THREE.Mesh(bandGeo, headphoneBandMat);
-      band.position.y = 0.04;
-      headPivot.add(band);
-      [-0.26, 0.26].forEach((ex) => {
-        const cup = new THREE.Mesh(cupGeo, brassMat);
-        cup.rotation.z = Math.PI / 2;
-        cup.position.set(ex, 0.0, 0);
-        headPivot.add(cup);
+      // Give each student distinct natural academic attire & cozy winter knit beanie colors
+      avatar.traverse((obj) => {
+        if (!obj.isMesh || !obj.material) return;
+        const mName = obj.material.name || '';
+        obj.material = obj.material.clone();
+        if (mName.includes('Outfit_Top')) {
+          obj.material.color.set(seat.topTint);
+        } else if (mName.includes('Outfit_Bottom')) {
+          obj.material.color.set(seat.bottomTint);
+        } else if (mName.includes('Headwear')) {
+          obj.material.color.set(seat.hatTint);
+        }
       });
-    }
 
-    const leftArm = new THREE.Mesh(armGeo, sweaterMat);
-    leftArm.position.set(-0.38, 0.68, 0.32);
-    leftArm.rotation.set(0.95, 0, -0.20);
-    torsoPivot.add(leftArm);
+      // Collect standard humanoid bones (no colons!) and apply relative seated pose preserving rest quaternions!
+      const bones = {};
+      avatar.traverse((obj) => {
+        if (obj.isBone) bones[obj.name] = obj;
+      });
 
-    const rightArmPivot = new THREE.Group();
-    rightArmPivot.position.set(0.36, 0.96, 0.05);
-    torsoPivot.add(rightArmPivot);
+      // Legs: LeftUpLeg/RightUpLeg rest pose is 180° around Z, so rotateX(+1.42) swings thighs cleanly forward!
+      if (bones.LeftUpLeg) bones.LeftUpLeg.rotateX(1.42);
+      if (bones.RightUpLeg) bones.RightUpLeg.rotateX(1.42);
+      // Knees: rotateX(-1.38) bends shins cleanly down toward the floor!
+      if (bones.LeftLeg) bones.LeftLeg.rotateX(-1.38);
+      if (bones.RightLeg) bones.RightLeg.rotateX(-1.38);
 
-    const rightArm = new THREE.Mesh(armGeo, sweaterMat);
-    rightArm.position.set(0.04, -0.30, 0.28);
-    rightArm.rotation.set(0.98, 0, 0.16);
-    rightArmPivot.add(rightArm);
+      // Gentle upright study posture (head stays cleanly clear of the green banker's lamp!)
+      if (bones.Spine) bones.Spine.rotateX(0.08);
+      if (bones.Spine1) bones.Spine1.rotateX(0.08);
+      if (bones.Neck) bones.Neck.rotateX(0.10);
+      if (bones.Head) {
+        bones.Head.rotateX(0.16);
+        bones.Head.rotateY(((idx % 3) - 1) * 0.12);
+      }
 
-    studentsGroup.add(stu);
-    animatedStudents.push({
-      torsoPivot,
-      headPivot,
-      rightArmPivot,
-      phase: x * 0.9 + z * 0.6,
-      baseTorsoX: torsoPivot.rotation.x,
-      baseHeadX: headPivot.rotation.x
+      // Arms: ReadyPlayerMe starts in relaxed A-pose; bring arms forward & elbows bent naturally over the reading table!
+      if (bones.LeftArm) {
+        bones.LeftArm.rotateX(0.62);
+        bones.LeftArm.rotateZ(-0.18);
+      }
+      if (bones.RightArm) {
+        bones.RightArm.rotateX(0.62);
+        bones.RightArm.rotateZ(0.18);
+      }
+      if (bones.LeftForeArm) {
+        bones.LeftForeArm.rotateZ(0.55);
+        bones.LeftForeArm.rotateX(0.35);
+      }
+      if (bones.RightForeArm) {
+        bones.RightForeArm.rotateZ(-0.55);
+        bones.RightForeArm.rotateX(0.35);
+      }
+
+      const stuWrapper = new THREE.Group();
+      const chairX = seat.tx + seat.sx * CHAIR_DX;
+      const chairZ = seat.tz + seat.sz * CHAIR_DZ;
+      // Offset slightly forward (+0.20 toward the table) on the wider 3.28-tall chair seat -> ZERO backrest clipping & ZERO lamp clipping!
+      const forwardZ = Math.cos(seat.rotY) * 0.20;
+      stuWrapper.position.set(chairX, FLOOR_Y - 0.96, chairZ + forwardZ);
+      stuWrapper.rotation.y = seat.rotY;
+      stuWrapper.add(avatar);
+      studentsGroup.add(stuWrapper);
+
+      animatedStudents.push({
+        spine: bones.Spine1 || null,
+        head: bones.Head || null,
+        rightForeArm: bones.RightForeArm || null,
+        phase: idx * 1.15,
+        baseSpineX: bones.Spine1 ? bones.Spine1.rotation.x : 0,
+        baseHeadX: bones.Head ? bones.Head.rotation.x : 0,
+        baseHeadY: bones.Head ? bones.Head.rotation.y : 0,
+        baseArmY: bones.RightForeArm ? bones.RightForeArm.rotation.y : 0
+      });
     });
-  }
-
-  // Place students neatly on mid/far reading tables so they add rich library life without clipping foreground!
-  [
-    { x: -10.75, z: -5.78, rotY: Math.PI, sweaterColor: '#c9b399', hairColor: '#221a17' },
-    { x: -7.65, z: -8.62, rotY: 0, sweaterColor: '#486058', hairColor: '#2a1d16', hasHeadphones: true },
-    { x: 7.65, z: -5.78, rotY: Math.PI, sweaterColor: '#8c4c3d', hairColor: '#1d1816', hasHeadphones: true },
-    { x: 10.75, z: -8.62, rotY: 0, sweaterColor: '#3d516b', hairColor: '#251c18' },
-    { x: -1.55, z: -12.78, rotY: Math.PI, sweaterColor: '#b58d5e', hairColor: '#221a17' },
-    { x: 1.55, z: -15.62, rotY: 0, sweaterColor: '#5d4a66', hairColor: '#1e1918' },
-    { x: -7.65, z: -19.58, rotY: Math.PI, sweaterColor: '#56684f', hairColor: '#231b18' },
-    { x: 7.65, z: -19.58, rotY: Math.PI, sweaterColor: '#a66b51', hairColor: '#261d17', hasHeadphones: true },
-    { x: -7.65, z: 9.62, rotY: Math.PI, sweaterColor: '#415b76', hairColor: '#1f1918' },
-    { x: 1.55, z: 6.78, rotY: 0, sweaterColor: '#c2a687', hairColor: '#241b16', hasHeadphones: true },
-    { x: 10.75, z: 9.62, rotY: Math.PI, sweaterColor: '#7a3e38', hairColor: '#221a17' }
-  ].forEach(createSeatedStudent);
+  });
 
   // ===== 9. Photographic Streaked 3D Fireworks Over the Real Shanghai Night Skyline! =====
   function createSparkTexture() {
@@ -776,10 +979,6 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
   }
 
   function updateFireworks(dt, elapsed) {
-    if (!isNightMode) {
-      fireworksGroup.visible = false;
-      return;
-    }
     fireworksGroup.visible = true;
 
     nextLaunchCooldown -= dt;
@@ -877,27 +1076,25 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     }
   }
 
-  // ===== Public Controller API =====
+  // ===== Public Controller API (Night-Only Warm & Hopeful Library!) =====
   let hasPeople = true;
-  let isNightMode = true;
   let lastElapsed = 0;
 
   function setOccupied(occupied) {
     hasPeople = !!occupied;
     studentsGroup.visible = hasPeople;
-    lampGreenShadeMat.emissiveIntensity = isNightMode ? (hasPeople ? 0.65 : 0.32) : 0.08;
-    frontHallLight.intensity = isNightMode ? (hasPeople ? 44 : 32) : 12;
-    rearHallLight.intensity = isNightMode ? (hasPeople ? 38 : 28) : 10;
+    lampGreenShadeMat.emissiveIntensity = hasPeople ? 0.65 : 0.34;
+    frontHallLight.intensity = hasPeople ? 44 : 34;
+    rearHallLight.intensity = hasPeople ? 38 : 28;
   }
 
-  function setLightingMode(nightMode) {
-    isNightMode = !!nightMode;
-    skyDomeMat.color.set(isNightMode ? '#ffffff' : '#dce8f5');
-    lampGreenShadeMat.emissiveIntensity = isNightMode ? (hasPeople ? 0.65 : 0.32) : 0.08;
-    windowLight.color.set(isNightMode ? '#b8d4ff' : '#ffe4bd');
-    windowLight.intensity = isNightMode ? 0.65 : 1.45;
-    frontHallLight.intensity = isNightMode ? (hasPeople ? 44 : 32) : 12;
-    rearHallLight.intensity = isNightMode ? (hasPeople ? 38 : 28) : 10;
+  function setLightingMode() {
+    // Always keep the warm hopeful night skyline & fireworks outside
+    lampGreenShadeMat.emissiveIntensity = hasPeople ? 0.65 : 0.34;
+    windowLight.color.set('#b8d4ff');
+    windowLight.intensity = 0.68;
+    frontHallLight.intensity = hasPeople ? 44 : 34;
+    rearHallLight.intensity = hasPeople ? 38 : 28;
   }
 
   function update(elapsed) {
@@ -908,11 +1105,14 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
 
     if (hasPeople) {
       animatedStudents.forEach((s) => {
-        s.torsoPivot.rotation.x = s.baseTorsoX + Math.sin(elapsed * 1.2 + s.phase) * 0.022;
-        s.headPivot.rotation.x = s.baseHeadX + Math.sin(elapsed * 0.85 + s.phase) * 0.04;
-        s.headPivot.rotation.y = Math.sin(elapsed * 0.45 + s.phase) * 0.08;
-        s.rightArmPivot.rotation.z = Math.sin(elapsed * 4.2 + s.phase) * 0.035;
-        s.rightArmPivot.rotation.x = Math.cos(elapsed * 3.1 + s.phase) * 0.025;
+        if (s.spine) s.spine.rotation.x = s.baseSpineX + Math.sin(elapsed * 1.1 + s.phase) * 0.025;
+        if (s.head) {
+          s.head.rotation.x = s.baseHeadX + Math.sin(elapsed * 0.8 + s.phase) * 0.045;
+          s.head.rotation.y = s.baseHeadY + Math.sin(elapsed * 0.42 + s.phase) * 0.08;
+        }
+        if (s.rightForeArm) {
+          s.rightForeArm.rotation.y = s.baseArmY + Math.sin(elapsed * 3.6 + s.phase) * 0.04;
+        }
       });
     }
   }
