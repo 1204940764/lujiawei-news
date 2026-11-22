@@ -184,8 +184,8 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.minDistance = 2.4;
 controls.maxDistance = viewportPreset.maxDistance;
-controls.maxPolarAngle = Math.PI * 0.62; // Allow tilting upward to admire the soaring ceiling & fireworks!
-controls.minPolarAngle = 0.16;
+controls.maxPolarAngle = Math.PI / 2.22;
+controls.minPolarAngle = 0.22;
 controls.enablePan = true;
 controls.panSpeed = 0.55;
 
