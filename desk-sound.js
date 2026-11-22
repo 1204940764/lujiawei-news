@@ -347,6 +347,55 @@ class DeskSoundEngine {
     this._modal({ delay: 0.00, baseFreq: 523.25, ratios: [1, 2.0, 3.0], decays: [0.28, 0.16, 0.08], gains: [0.065, 0.022, 0.008] });
     this._modal({ delay: 0.09, baseFreq: 659.25, ratios: [1, 2.0, 3.0], decays: [0.36, 0.20, 0.10], gains: [0.075, 0.026, 0.010] });
   }
+
+  // ===== 10. Realistic Library Hardwood / Carpet Footstep Foley =====
+  playFootstep(isLeft = true, onCarpet = false) {
+    const pitchJitter = (isLeft ? 0.96 : 1.04) * (0.96 + Math.random() * 0.08);
+    if (onCarpet) {
+      // Soft muffled step on woven central aisle runner carpet
+      this._modal({
+        delay: 0,
+        baseFreq: 72 * pitchJitter,
+        ratios: [1, 1.8],
+        decays: [0.075, 0.04],
+        gains: [0.075, 0.02],
+        pitchDrop: 0.65,
+        wet: 0.35
+      });
+      this._noise({
+        delay: 0.005,
+        duration: 0.065,
+        freqStart: 420,
+        freqEnd: 240,
+        q: 0.8,
+        gain: 0.055,
+        type: 'lowpass',
+        wet: 0.3
+      });
+    } else {
+      // Crisp wooden floorboard resonance + subtle rubber sneaker sole tap
+      this._modal({
+        delay: 0,
+        baseFreq: 96 * pitchJitter,
+        ratios: [1, 2.25, 3.9],
+        decays: [0.095, 0.052, 0.025],
+        gains: [0.11, 0.042, 0.014],
+        pitchDrop: 0.62,
+        wet: 0.75
+      });
+      this._noise({
+        delay: 0.004,
+        duration: 0.045,
+        freqStart: 1350 * pitchJitter,
+        freqEnd: 520,
+        q: 1.2,
+        gain: 0.065,
+        type: 'bandpass',
+        attackRatio: 0.1,
+        wet: 0.65
+      });
+    }
+  }
 }
 
 export const deskSound = new DeskSoundEngine();

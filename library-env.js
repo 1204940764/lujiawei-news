@@ -213,6 +213,17 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
     libGroup.add(longBeam);
   });
 
+  // ===== Collision Obstacles Registry (Walls, Columns, Tables & Chairs) =====
+  const obstacles = [];
+  function registerObstacle(cx, cz, halfW, halfD) {
+    obstacles.push({
+      minX: cx - halfW,
+      maxX: cx + halfW,
+      minZ: cz - halfD,
+      maxZ: cz + halfD
+    });
+  }
+
   const colGeo = new THREE.BoxGeometry(0.95, HALL_H, 0.95);
   const plinthGeo = new THREE.BoxGeometry(1.25, 0.85, 1.25);
   [
@@ -222,6 +233,7 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
     [-17.5, 13.5],  [17.5, 13.5],
     [-17.5, 24.5],  [17.5, 24.5]
   ].forEach(([cx, cz]) => {
+    registerObstacle(cx, cz, 0.72, 0.72);
     const col = new THREE.Mesh(colGeo, darkWalnutMat);
     col.position.set(cx, FLOOR_Y + HALL_H / 2, cz);
     libGroup.add(col);
@@ -495,6 +507,8 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
   const openBookGeo = new THREE.BoxGeometry(0.75, 0.05, 0.54);
 
   function createLongReadingTable(x, z) {
+    // Register table + front/back chairs as solid obstacle
+    registerObstacle(x, z, 3.45, 2.15);
     const table = new THREE.Group();
     table.position.set(x, FLOOR_Y, z);
 
@@ -998,6 +1012,10 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
     setOccupied,
     setLightingMode,
     update,
-    isOccupied: () => hasPeople
+    isOccupied: () => hasPeople,
+    getCollisionData: () => ({
+      bounds: { minX: -HALL_W / 2 + 2.2, maxX: HALL_W / 2 - 2.2, minZ: FRONT_Z + 1.6, maxZ: BACK_Z - 2.2 },
+      obstacles
+    })
   };
 }

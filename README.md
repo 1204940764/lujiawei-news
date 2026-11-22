@@ -17,8 +17,9 @@
 ├── 3d.html             # 3D 大学图书馆自习室页面
 ├── desk-3d.js          # 3D 主场景、书本展开/翻页动画、UV 点击下载与交互逻辑
 ├── desk-data.js        # 7 门科目备考内容与资料清单数据
-├── desk-sound.js       # Web Audio API 物理建模拟真交互音效引擎
+├── desk-sound.js       # Web Audio API 物理建模拟真交互音效引擎（含木地板/地毯脚步声）
 ├── library-env.js      # 宽阔双层大学图书馆大厅、窗外校园、烟花与自习同学
+├── player-avatar.js    # 玩家精细 3D 人物建模、行走动画与防穿模碰撞系统
 ├── assets/
 │   └── score-419.jpg   # 419 分初试成绩单图片
 └── download/           # 免费备考资料（408 四科 XMind 思维导图、高数 PDF、全文 MD/PDF）

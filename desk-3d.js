@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=15';
-import { deskSound } from './desk-sound.js?v=15';
-import { createLibraryEnvironment } from './library-env.js?v=15';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=16';
+import { deskSound } from './desk-sound.js?v=16';
+import { createLibraryEnvironment } from './library-env.js?v=16';
+import { createPlayerAvatar } from './player-avatar.js?v=16';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -16,6 +17,7 @@ const loadingEl = document.getElementById('loading-overlay');
 const easterToastEl = document.getElementById('easter-toast');
 const studyTimerPillEl = document.getElementById('study-timer-pill');
 const peopleToggleBtn = document.getElementById('btn-people');
+const roamToggleBtn = document.getElementById('btn-roam');
 
 // ===== Easter-Egg Toast & Study Timer =====
 let toastTimer = null;
@@ -1648,6 +1650,78 @@ scene.add(dustMotes);
 // ===== Build Warm Brown University Library Environment =====
 const libraryEnv = createLibraryEnvironment(scene, maxAniso);
 
+// ===== Build Detailed Player Character + WASD & Mouse-Look Free-Roam Controller =====
+const playerAvatar = createPlayerAvatar(scene, {
+  collisionData: libraryEnv.getCollisionData(),
+  onFootstep: (isLeft, onCarpet) => deskSound.playFootstep(isLeft, onCarpet)
+});
+playerAvatar.root.visible = false; // Shown in 3rd-person Free Roam mode
+
+let isRoamMode = false;
+let roamYaw = 0;       // Horizontal camera orbit angle around player (0 = looking -Z toward desk & windows)
+let roamPitch = 0.24;  // Vertical pitch (negative = looking UP at ceiling & fireworks!)
+let roamDist = 5.4;    // 3rd-person camera follow distance
+let isRoamDragging = false;
+let lastRoamMouse = { x: 0, y: 0 };
+const keysPressed = new Set();
+
+function enterRoamMode() {
+  if (isRoamMode) return;
+  if (activeItemId) closeActiveItem(false);
+  isRoamMode = true;
+  camAnim = null;
+  controls.enabled = false;
+  playerAvatar.root.visible = true;
+  tooltipEl.classList.remove('visible');
+  roamToggleBtn.innerHTML = '<span>📚</span><span>回书桌</span>';
+  showEasterToast('🚶 进入自由漫游：WASD 移动 · Shift 加速 · 鼠标拖拽转视角 · ESC 回书桌', 3800);
+}
+
+function exitRoamMode() {
+  if (!isRoamMode) return;
+  isRoamMode = false;
+  isRoamDragging = false;
+  keysPressed.clear();
+  playerAvatar.root.visible = false;
+  controls.enabled = true;
+  roamToggleBtn.innerHTML = '<span>🚶</span><span>漫游</span>';
+  resetCamera();
+}
+
+roamToggleBtn.addEventListener('click', () => {
+  deskSound.playLampSwitch(!isRoamMode);
+  if (isRoamMode) exitRoamMode();
+  else enterRoamMode();
+});
+
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['w', 'a', 's', 'd', 'shift'].includes(k)) {
+    keysPressed.add(k);
+    markInteractive();
+    // Pressing WASD at the desk (when no book is open) seamlessly enters Free Roam!
+    if (!isRoamMode && !activeItemId && k !== 'shift') {
+      enterRoamMode();
+    }
+  } else if (k === 'escape' && isRoamMode) {
+    exitRoamMode();
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  keysPressed.delete(e.key.toLowerCase());
+});
+
+window.addEventListener('blur', () => {
+  keysPressed.clear();
+  isRoamDragging = false;
+});
+
+renderer.domElement.addEventListener('wheel', (e) => {
+  if (!isRoamMode) return;
+  roamDist = THREE.MathUtils.clamp(roamDist + e.deltaY * 0.005, 3.0, 10.5);
+}, { passive: true });
+
 peopleToggleBtn.addEventListener('click', () => {
   const nextOccupied = !libraryEnv.isOccupied();
   libraryEnv.setOccupied(nextOccupied);
@@ -1940,6 +2014,19 @@ window.addEventListener('keydown', markInteractive);
 
 renderer.domElement.addEventListener('pointermove', (event) => {
   markInteractive();
+  if (isRoamMode) {
+    if (isRoamDragging) {
+      const dx = event.clientX - lastRoamMouse.x;
+      const dy = event.clientY - lastRoamMouse.y;
+      lastRoamMouse = { x: event.clientX, y: event.clientY };
+      roamYaw -= dx * 0.0052;
+      // Allow looking UP smoothly (-0.58 rad) at ceiling & fireworks, or down (+0.85 rad)
+      roamPitch = THREE.MathUtils.clamp(roamPitch + dy * 0.0045, -0.58, 0.85);
+    }
+    renderer.domElement.style.cursor = isRoamDragging ? 'grabbing' : 'grab';
+    tooltipEl.classList.remove('visible');
+    return;
+  }
   // Skip sticky hover tooltip on touch screens
   if (event.pointerType === 'touch') return;
   const now = performance.now();
@@ -1998,12 +2085,21 @@ renderer.domElement.addEventListener('pointermove', (event) => {
 
 renderer.domElement.addEventListener('pointerdown', (event) => {
   markInteractive();
+  if (isRoamMode) {
+    isRoamDragging = true;
+    lastRoamMouse = { x: event.clientX, y: event.clientY };
+    return;
+  }
   if (event.button !== 0) return;
   pointerDownPos = { x: event.clientX, y: event.clientY };
   camAnim = null;
 });
 
 renderer.domElement.addEventListener('pointerup', (event) => {
+  if (isRoamMode) {
+    isRoamDragging = false;
+    return;
+  }
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   const dx = event.clientX - pointerDownPos.x;
   const dy = event.clientY - pointerDownPos.y;
@@ -2180,6 +2276,7 @@ const clock = new THREE.Clock();
 let lastRenderAt = 0;
 
 function isSceneActivelyAnimating() {
+  if (isRoamMode && (keysPressed.size > 0 || isRoamDragging)) return true;
   if (camAnim) return true;
   if (penHolderGroup.userData.shakeTime > 0 || mugGroup.userData.sipProgress >= 0) return true;
   if (stickyGroup.userData.bounceTime > 0 || plantGroup.userData.wiggleTime > 0) return true;
@@ -2380,10 +2477,37 @@ function animate(now = performance.now()) {
   dustMotes.rotation.y = elapsed * 0.018;
   dustMotes.position.y = Math.sin(elapsed * 0.5) * 0.04;
 
-  // Update library environment (outside autumn trees breeze + studying students)
+  // Update library environment (outside autumn trees breeze + studying students + fireworks)
   libraryEnv.update(elapsed);
 
-  controls.update();
+  // Update 3rd-person player avatar & follow camera when in Free Roam mode
+  if (isRoamMode) {
+    const moveForward = (keysPressed.has('w') ? 1 : 0) - (keysPressed.has('s') ? 1 : 0);
+    const moveRight = (keysPressed.has('d') ? 1 : 0) - (keysPressed.has('a') ? 1 : 0);
+    const moveVec = new THREE.Vector3();
+    if (moveForward !== 0 || moveRight !== 0) {
+      // Forward direction in world XZ plane from camera's roamYaw
+      const fwdX = -Math.sin(roamYaw);
+      const fwdZ = -Math.cos(roamYaw);
+      const rightX = Math.cos(roamYaw);
+      const rightZ = -Math.sin(roamYaw);
+      moveVec.set(fwdX * moveForward + rightX * moveRight, 0, fwdZ * moveForward + rightZ * moveRight).normalize();
+    }
+    playerAvatar.update(dt, elapsed, moveVec, keysPressed.has('shift'));
+
+    const focus = playerAvatar.getFocusPoint();
+    const horizDist = Math.cos(roamPitch) * roamDist;
+    const vertOffset = Math.sin(roamPitch) * roamDist;
+    const desiredCamPos = new THREE.Vector3(
+      THREE.MathUtils.clamp(focus.x + Math.sin(roamYaw) * horizDist, -31.5, 31.5),
+      THREE.MathUtils.clamp(focus.y + vertOffset, -2.2, 12.2),
+      THREE.MathUtils.clamp(focus.z + Math.cos(roamYaw) * horizDist, -25.8, 30.8)
+    );
+    camera.position.lerp(desiredCamPos, Math.min(1, dt * 10));
+    camera.lookAt(focus);
+  } else {
+    controls.update();
+  }
   renderer.render(scene, camera);
 }
 
