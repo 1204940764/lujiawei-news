@@ -3,9 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=26';
-import { deskSound } from './desk-sound.js?v=26';
-import { createLibraryEnvironment } from './library-env.js?v=26';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=30';
+import { deskSound } from './desk-sound.js?v=30';
+import { createLibraryEnvironment } from './library-env.js?v=30';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -128,7 +128,7 @@ function getResponsivePreset() {
     fov: 46,
     fogDensity: 0.0016,
     defaultCamPos: new THREE.Vector3(0.06, 3.05, 5.88),
-    defaultTarget: new THREE.Vector3(0.02, 0.82, -2.8),
+    defaultTarget: new THREE.Vector3(0.02, 1.38, -0.65),
     heroScale: 1.44,
     heroCamPos: new THREE.Vector3(0.0, 3.38, 4.15),
     heroCamTarget: new THREE.Vector3(0.0, 1.42, 1.12),
@@ -149,7 +149,7 @@ const camera = new THREE.PerspectiveCamera(
   viewportPreset.fov,
   window.innerWidth / window.innerHeight,
   0.1,
-  280
+  540
 );
 const DEFAULT_CAM_POS = viewportPreset.defaultCamPos.clone();
 const DEFAULT_TARGET = viewportPreset.defaultTarget.clone();
@@ -186,8 +186,8 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.minDistance = 2.4;
 controls.maxDistance = viewportPreset.maxDistance;
-controls.maxPolarAngle = Math.PI / 2.22;
-controls.minPolarAngle = 0.22;
+controls.maxPolarAngle = Math.PI / 2.12;
+controls.minPolarAngle = 0.58;
 controls.enablePan = true;
 controls.panSpeed = 0.55;
 

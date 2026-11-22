@@ -370,11 +370,11 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     libGroup.add(m);
   });
 
-  // ===== 5. REAL 3D NIGHT CITYSCAPE (VirtualCity.glb) + HOPEFUL STARRY NIGHT SKY =====
+  // ===== 5. MONUMENTAL REAL-SCALE MODERN NIGHT SKYLINE + CRISP STARFIELD + HOPEFUL TWILIGHT SKY =====
   const outsideGroup = new THREE.Group();
   libGroup.add(outsideGroup);
 
-  // Rich hopeful night sky dome with twilight horizon glow, stars & crescent moon
+  // Smooth midnight-blue twilight sky dome (no blurry canvas stars — stars are crisp 3D Points!)
   function createNightSkyTexture() {
     const c = document.createElement('canvas');
     c.width = 1024;
@@ -382,40 +382,24 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     const ctx = c.getContext('2d');
 
     const skyGrad = ctx.createLinearGradient(0, 0, 0, 512);
-    skyGrad.addColorStop(0.0, '#060b1a');
-    skyGrad.addColorStop(0.26, '#0d1a38');
-    skyGrad.addColorStop(0.46, '#1a2f5e');
-    skyGrad.addColorStop(0.56, '#2b3e6e');
-    skyGrad.addColorStop(0.63, '#544a6e');
-    skyGrad.addColorStop(0.70, '#7d5b5e');
-    skyGrad.addColorStop(0.78, '#20263b');
-    skyGrad.addColorStop(1.0, '#0a0e1a');
+    skyGrad.addColorStop(0.0, '#040814');
+    skyGrad.addColorStop(0.28, '#0a1530');
+    skyGrad.addColorStop(0.47, '#152752');
+    skyGrad.addColorStop(0.56, '#233866');
+    skyGrad.addColorStop(0.62, '#3d456b');
+    skyGrad.addColorStop(0.68, '#5c4e61');
+    skyGrad.addColorStop(0.75, '#191f33');
+    skyGrad.addColorStop(1.0, '#070a14');
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, 1024, 512);
 
-    // Subtle warm city horizon haze
-    const haze = ctx.createRadialGradient(512, 330, 18, 512, 330, 340);
-    haze.addColorStop(0.0, 'rgba(255, 196, 130, 0.34)');
-    haze.addColorStop(0.45, 'rgba(130, 148, 220, 0.16)');
-    haze.addColorStop(1.0, 'rgba(20, 30, 60, 0.0)');
+    // Warm golden-peach city horizon glow behind the skyscrapers
+    const haze = ctx.createRadialGradient(512, 326, 20, 512, 326, 380);
+    haze.addColorStop(0.0, 'rgba(255, 198, 132, 0.28)');
+    haze.addColorStop(0.45, 'rgba(118, 142, 215, 0.14)');
+    haze.addColorStop(1.0, 'rgba(15, 25, 55, 0.0)');
     ctx.fillStyle = haze;
-    ctx.fillRect(0, 120, 1024, 340);
-
-    // Crisp stars in upper night sky
-    let seed = 4219;
-    for (let i = 0; i < 420; i++) {
-      seed = (seed * 16807) % 2147483647;
-      const sx = (seed % 1024);
-      seed = (seed * 16807) % 2147483647;
-      const sy = (seed % 260);
-      seed = (seed * 16807) % 2147483647;
-      const r = 0.5 + (seed % 100) / 85;
-      const alpha = 0.35 + (seed % 65) / 100;
-      ctx.fillStyle = i % 9 === 0 ? `rgba(255,235,195,${alpha})` : `rgba(220,236,255,${alpha})`;
-      ctx.beginPath();
-      ctx.arc(sx, sy, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.fillRect(0, 110, 1024, 340);
 
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -427,125 +411,299 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     side: THREE.BackSide,
     fog: false
   });
-  const skyDome = new THREE.Mesh(new THREE.SphereGeometry(165, 40, 24), skyDomeMat);
-  skyDome.position.set(0, 2.0, -10.0);
+  const skyDome = new THREE.Mesh(new THREE.SphereGeometry(360, 40, 24), skyDomeMat);
+  skyDome.position.set(0, 12.0, -30.0);
   outsideGroup.add(skyDome);
 
-  // Crisp high-resolution nighttime skyscraper window grid texture (realistic lit & unlit floors, warm amber & white lights)
-  function createNightWindowEmissiveTex() {
+  // Crisp pinpoint 3D starfield in the upper night sky outside the panoramic window
+  const starCount = 320;
+  const starPos = new Float32Array(starCount * 3);
+  const starCol = new Float32Array(starCount * 3);
+  let starSeed = 1337;
+  for (let i = 0; i < starCount; i++) {
+    starSeed = (starSeed * 16807) % 2147483647;
+    const theta = ((starSeed % 1000) / 1000 - 0.5) * Math.PI * 1.15; // Wide arc outside front windows
+    starSeed = (starSeed * 16807) % 2147483647;
+    const phi = 0.08 + ((starSeed % 1000) / 1000) * 0.52; // Above horizon
+    const rad = 285;
+    starPos[i * 3] = Math.sin(theta) * Math.cos(phi) * rad;
+    starPos[i * 3 + 1] = Math.sin(phi) * rad + 8;
+    starPos[i * 3 + 2] = -Math.cos(theta) * Math.cos(phi) * rad - 25;
+
+    const warm = i % 7 === 0;
+    const bright = 0.65 + (i % 4) * 0.11;
+    starCol[i * 3] = warm ? 1.0 * bright : 0.84 * bright;
+    starCol[i * 3 + 1] = warm ? 0.92 * bright : 0.91 * bright;
+    starCol[i * 3 + 2] = warm ? 0.78 * bright : 1.0 * bright;
+  }
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+  starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+  const starPoints = new THREE.Points(
+    starGeo,
+    new THREE.PointsMaterial({
+      size: 1.15,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      fog: false
+    })
+  );
+  outsideGroup.add(starPoints);
+
+  // City ground plane ~5 floors below the library (y = -23) so the library feels grounded on a realistic university floor!
+  const CITY_GROUND_Y = FLOOR_Y - 20.0;
+  function createCityGroundTexture() {
     const c = document.createElement('canvas');
     c.width = 512;
     c.height = 512;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#000000';
+    ctx.fillStyle = '#090d18';
     ctx.fillRect(0, 0, 512, 512);
-
-    const cols = 16;
-    const rows = 28;
-    const cw = 512 / cols;
-    const rh = 512 / rows;
-    let seed = 9187;
-    const warmTones = ['#ffe5a8', '#ffd27a', '#fff6dc', '#b4daff', '#ffc86b', '#fff0cc'];
-
-    for (let r = 0; r < rows; r++) {
-      // Occasional dark mechanical floor every ~8 stories
-      if (r % 9 === 4) continue;
-      for (let col = 0; col < cols; col++) {
-        seed = (seed * 16807) % 2147483647;
-        const lit = (seed % 100) < 38;
-        if (!lit) continue;
-        ctx.fillStyle = warmTones[seed % warmTones.length];
-        // Clean horizontal modern office/apartment window pane with dark structural mullions
-        ctx.fillRect(col * cw + 5, r * rh + 4, cw - 10, rh - 8);
-      }
+    // Warm golden avenue streetlamp lines
+    ctx.strokeStyle = 'rgba(255, 198, 120, 0.28)';
+    ctx.lineWidth = 3;
+    for (let i = 64; i < 512; i += 128) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(512, i);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, 512);
+      ctx.stroke();
     }
-
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(2, 4);
-    tex.anisotropy = maxAniso;
+    tex.repeat.set(8, 8);
     return tex;
   }
+  const cityGround = new THREE.Mesh(
+    new THREE.PlaneGeometry(520, 320),
+    new THREE.MeshBasicMaterial({ map: createCityGroundTexture(), fog: false })
+  );
+  cityGround.rotation.x = -Math.PI / 2;
+  cityGround.position.set(0, CITY_GROUND_Y, FRONT_Z - 165);
+  outsideGroup.add(cityGround);
 
-  const nightWinEmissiveTex = createNightWindowEmissiveTex();
+  // High-resolution architectural glass-curtain skyscraper facade textures (realistic floor bands, lit offices, dark mullions!)
+  function createSkyscraperFacadeMaps(variant = 0) {
+    const w = 512;
+    const h = 1024;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
 
-  // Subtle moonlight + cool architectural rim so dark night skyscrapers have crisp 3D depth
-  const cityMoonLight = new THREE.DirectionalLight('#7ea8ff', 0.75);
-  cityMoonLight.position.set(18, 44, FRONT_Z - 10);
-  outsideGroup.add(cityMoonLight);
+    const ec = document.createElement('canvas');
+    ec.width = w;
+    ec.height = h;
+    const ectx = ec.getContext('2d');
 
-  // Load REAL 3D City Model (Khronos VirtualCity.glb) — keep ONLY real 3D skyscrapers & buildings, strip skybox/alien/ships!
-  gltfLoader.load('assets/models/VirtualCity.glb', (gltf) => {
-    const rawCity = gltf.scene;
-    const KEEP_BUILDING_PREFIXES = ['skscr', 'sc_scrap', 'tower', 'tow0', 'build', 'b01', 'b02', 'b03'];
+    // Deep dark architectural glass & spandrel base
+    const baseColors = ['#101828', '#151c2c', '#0e1522'];
+    ctx.fillStyle = baseColors[variant % 3];
+    ctx.fillRect(0, 0, w, h);
+    ectx.fillStyle = '#000000';
+    ectx.fillRect(0, 0, w, h);
 
-    // Step 1: Hide skbox (orange dome!), ground plane, sci-fi ships/helicopters/cameras — keep ONLY real 3D buildings!
-    rawCity.traverse((child) => {
-      if (!child.isMesh) return;
-      const n = (child.name || '').toLowerCase();
-      const parentName = (child.parent && child.parent.name ? child.parent.name : '').toLowerCase();
-      const isBuilding = KEEP_BUILDING_PREFIXES.some((p) => n.includes(p) || parentName.includes(p));
-      if (!isBuilding) {
-        child.visible = false;
-        return;
-      }
-      child.visible = true;
-    });
+    const cols = variant === 0 ? 12 : (variant === 1 ? 10 : 14);
+    const floors = variant === 0 ? 32 : (variant === 1 ? 26 : 36);
+    const cw = w / cols;
+    const fh = h / floors;
 
-    // Step 2: Recompute tight bounding box strictly over the visible 3D skyscrapers
-    rawCity.updateMatrixWorld(true);
-    const box = new THREE.Box3();
-    rawCity.traverse((child) => {
-      if (child.isMesh && child.visible) {
-        box.expandByObject(child);
-      }
-    });
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-
-    const targetHeight = 38.0;
-    const scale = targetHeight / Math.max(size.y, 0.001);
-    rawCity.scale.setScalar(scale);
-    rawCity.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
-
-    // Step 3: Style every 3D skyscraper as a sleek dark-night architectural tower with crisp glowing windows!
-    let bIdx = 0;
-    rawCity.traverse((child) => {
-      if (!child.isMesh || !child.visible) return;
-      const isWarm = bIdx % 4 !== 0;
-      const towerMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(bIdx % 3 === 0 ? '#121a2d' : (bIdx % 3 === 1 ? '#182136' : '#141926')),
-        roughness: 0.42,
-        metalness: 0.48,
-        emissive: new THREE.Color(isWarm ? '#ffd285' : '#b8dcff'),
-        emissiveMap: nightWinEmissiveTex,
-        emissiveIntensity: 1.2 + (bIdx % 3) * 0.2,
-        fog: false
-      });
-      bIdx++;
-      child.material = towerMat;
-    });
-
-    const cityTemplate = new THREE.Group();
-    cityTemplate.add(rawCity);
-
-    // 3 monumental, properly-proportioned skyscraper clusters across the panoramic window (no occluded back duplicates!)
-    const cityPlacements = [
-      { x: 0,    y: FLOOR_Y - 18.0, z: FRONT_Z - 66, rotY: 0.22,           s: 1.05 },
-      { x: -58,  y: FLOOR_Y - 19.0, z: FRONT_Z - 70, rotY: Math.PI * 0.52, s: 1.12 },
-      { x: 58,   y: FLOOR_Y - 19.0, z: FRONT_Z - 70, rotY: -Math.PI * 0.48, s: 1.10 }
+    let seed = 4109 + variant * 1973;
+    const palettes = [
+      ['#ffe6b3', '#ffd285', '#fff4d8', '#c6e2ff', '#ffca78'],
+      ['#ffda94', '#ffbe66', '#fff0c8', '#ffe4b5', '#ffd07d'],
+      ['#d6ecff', '#fff6e0', '#ffe3a8', '#b8dcff', '#ffffff']
     ];
-    cityPlacements.forEach(({ x, y, z, rotY, s }) => {
-      const block = cityTemplate.clone(true);
-      block.position.set(x, y, z);
-      block.rotation.y = rotY;
-      block.scale.setScalar(s);
-      outsideGroup.add(block);
+    const pal = palettes[variant % 3];
+
+    for (let f = 0; f < floors; f++) {
+      const fy = f * fh;
+      // Structural spandrel slab between floors
+      ctx.fillStyle = '#090e1a';
+      ctx.fillRect(0, fy, w, Math.max(4, fh * 0.28));
+
+      // Dark mechanical / refuge floor every 11 stories
+      if (f % 11 === 5) continue;
+
+      // Occasional full-floor lit office suite
+      seed = (seed * 16807) % 2147483647;
+      const floorActivity = (seed % 100) < 22 ? 0.72 : 0.36;
+
+      for (let col = 0; col < cols; col++) {
+        const cx = col * cw;
+        // Subtle unlit glass reflection
+        ctx.fillStyle = 'rgba(42, 62, 102, 0.22)';
+        ctx.fillRect(cx + 3, fy + fh * 0.30, cw - 6, fh * 0.62);
+
+        seed = (seed * 16807) % 2147483647;
+        if ((seed % 100) / 100 < floorActivity) {
+          const tone = pal[seed % pal.length];
+          const winX = cx + 4;
+          const winY = fy + fh * 0.32;
+          const winW = cw - 8;
+          const winH = fh * 0.58;
+
+          // Subtle top-to-bottom interior ceiling light gradient inside each office window!
+          const wg = ectx.createLinearGradient(0, winY, 0, winY + winH);
+          wg.addColorStop(0.0, '#ffffff');
+          wg.addColorStop(0.35, tone);
+          wg.addColorStop(1.0, 'rgba(180, 128, 74, 0.45)');
+          ectx.fillStyle = wg;
+          ectx.fillRect(winX, winY, winW, winH);
+
+          ctx.fillStyle = tone;
+          ctx.fillRect(winX, winY, winW, winH);
+        }
+      }
+    }
+
+    // Crisp vertical steel curtain-wall mullions
+    ctx.fillStyle = '#080c15';
+    ectx.fillStyle = '#000000';
+    for (let col = 0; col <= cols; col++) {
+      ctx.fillRect(col * cw - 1.5, 0, 3, h);
+      ectx.fillRect(col * cw - 1.5, 0, 3, h);
+    }
+
+    const map = new THREE.CanvasTexture(c);
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.anisotropy = maxAniso;
+
+    const emissiveMap = new THREE.CanvasTexture(ec);
+    emissiveMap.colorSpace = THREE.SRGBColorSpace;
+    emissiveMap.wrapS = emissiveMap.wrapT = THREE.RepeatWrapping;
+    emissiveMap.anisotropy = maxAniso;
+
+    return { map, emissiveMap };
+  }
+
+  const facadeSets = [0, 1, 2].map((v) => {
+    const maps = createSkyscraperFacadeMaps(v);
+    return new THREE.MeshStandardMaterial({
+      map: maps.map,
+      emissive: new THREE.Color('#ffffff'),
+      emissiveMap: maps.emissiveMap,
+      emissiveIntensity: 0.92,
+      roughness: 0.28,
+      metalness: 0.55,
+      fog: false
     });
   });
+
+  const roofDarkMat = new THREE.MeshStandardMaterial({
+    color: '#0e1422',
+    roughness: 0.55,
+    metalness: 0.45,
+    fog: false
+  });
+  const crownGoldMat = new THREE.MeshBasicMaterial({ color: '#ffdf9e', fog: false });
+  const crownCyanMat = new THREE.MeshBasicMaterial({ color: '#9ed8ff', fog: false });
+  const beaconRedMat = new THREE.MeshBasicMaterial({ color: '#ff4242', fog: false });
+
+  // Helper: build a real-scale monumental multi-tier modern skyscraper (podium + tower + setback + lit crown + spire)
+  function addMonumentalSkyscraper({ x, z, w, d, h, variant, hasSetback = true, hasSpire = false, crownCyan = false }) {
+    const g = new THREE.Group();
+    g.position.set(x, CITY_GROUND_Y, z);
+
+    const facadeMat = facadeSets[variant % facadeSets.length];
+    const mats = [facadeMat, facadeMat, roofDarkMat, roofDarkMat, facadeMat, facadeMat];
+
+    // Main soaring glass tower
+    const mainH = hasSetback ? h * 0.78 : h;
+    const mainTower = new THREE.Mesh(new THREE.BoxGeometry(w, mainH, d), mats);
+    mainTower.position.y = mainH / 2;
+    g.add(mainTower);
+
+    let topY = mainH;
+
+    // Stepped upper architectural setback tier (proportional window texture repeat so floor height matches lower tower!)
+    if (hasSetback) {
+      const upperH = h * 0.22;
+      const upperW = w * 0.72;
+      const upperD = d * 0.72;
+      const upperFacadeMat = facadeMat.clone();
+      upperFacadeMat.map = facadeMat.map.clone();
+      upperFacadeMat.map.needsUpdate = true;
+      upperFacadeMat.map.repeat.set(0.72, 0.28);
+      upperFacadeMat.emissiveMap = facadeMat.emissiveMap.clone();
+      upperFacadeMat.emissiveMap.needsUpdate = true;
+      upperFacadeMat.emissiveMap.repeat.set(0.72, 0.28);
+      const upperMats = [upperFacadeMat, upperFacadeMat, roofDarkMat, roofDarkMat, upperFacadeMat, upperFacadeMat];
+      const upperTower = new THREE.Mesh(new THREE.BoxGeometry(upperW, upperH, upperD), upperMats);
+      upperTower.position.y = mainH + upperH / 2;
+      g.add(upperTower);
+
+      // Subtle glowing architectural crown ring at roofline
+      const crownTrim = new THREE.Mesh(
+        new THREE.BoxGeometry(upperW + 0.4, 0.55, upperD + 0.4),
+        crownCyan ? crownCyanMat : crownGoldMat
+      );
+      crownTrim.position.y = mainH + upperH - 0.35;
+      g.add(crownTrim);
+
+      // Mechanical rooftop penthouse
+      const mech = new THREE.Mesh(new THREE.BoxGeometry(upperW * 0.55, 3.2, upperD * 0.55), roofDarkMat);
+      mech.position.y = mainH + upperH + 1.6;
+      g.add(mech);
+      topY = mainH + upperH + 3.2;
+    } else {
+      const crownTrim = new THREE.Mesh(
+        new THREE.BoxGeometry(w + 0.4, 0.55, d + 0.4),
+        crownCyan ? crownCyanMat : crownGoldMat
+      );
+      crownTrim.position.y = mainH - 0.35;
+      g.add(crownTrim);
+    }
+
+    // Tall landmark needle spire + red aviation warning beacon
+    if (hasSpire) {
+      const spireH = 14 + (variant % 3) * 4;
+      const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.75, spireH, 8), roofDarkMat);
+      spire.position.y = topY + spireH / 2;
+      g.add(spire);
+
+      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 8), beaconRedMat);
+      beacon.position.y = topY + spireH + 0.3;
+      g.add(beacon);
+    }
+
+    outsideGroup.add(g);
+  }
+
+  // Carefully curated real-scale metropolitan skyline:
+  // EVERY single building is strictly OUTSIDE the library (z <= FRONT_Z - 64 = -91.5, minimum clearance > 50 units!)
+  // Towering heights (68–118 units, matching 1m ≈ 3.6 units) with NO occluded duplicates!
+  const skylineTowers = [
+    // Left panoramic window bay (x: -135 to -48)
+    { x: -126, z: FRONT_Z - 92,  w: 28, d: 24, h: 48, variant: 0, hasSetback: true,  hasSpire: false },
+    { x: -94,  z: FRONT_Z - 80,  w: 24, d: 22, h: 42, variant: 1, hasSetback: false, hasSpire: false },
+    { x: -70,  z: FRONT_Z - 122, w: 30, d: 26, h: 58, variant: 2, hasSetback: true,  hasSpire: true,  crownCyan: true },
+    { x: -48,  z: FRONT_Z - 86,  w: 22, d: 20, h: 36, variant: 0, hasSetback: false, hasSpire: false },
+
+    // Center panoramic window bay (x: -36 to +36) — realistic 5th-floor view with grand skyline & bright fireworks above!
+    { x: -26,  z: FRONT_Z - 106, w: 24, d: 22, h: 44, variant: 1, hasSetback: true,  hasSpire: false },
+    { x: -2,   z: FRONT_Z - 138, w: 28, d: 26, h: 56, variant: 2, hasSetback: true,  hasSpire: true,  crownCyan: false },
+    { x: 22,   z: FRONT_Z - 98,  w: 22, d: 20, h: 38, variant: 0, hasSetback: false, hasSpire: false },
+    { x: 46,   z: FRONT_Z - 126, w: 30, d: 26, h: 60, variant: 1, hasSetback: true,  hasSpire: true,  crownCyan: true },
+
+    // Right panoramic window bay (x: +60 to +135)
+    { x: 72,   z: FRONT_Z - 86,  w: 24, d: 22, h: 42, variant: 2, hasSetback: false, hasSpire: false },
+    { x: 98,   z: FRONT_Z - 118, w: 32, d: 26, h: 56, variant: 0, hasSetback: true,  hasSpire: true,  crownCyan: false },
+    { x: 128,  z: FRONT_Z - 92,  w: 26, d: 22, h: 46, variant: 1, hasSetback: true,  hasSpire: false }
+  ];
+  skylineTowers.forEach(addMonumentalSkyscraper);
+
+  // Subtle exterior moonlight so dark architectural glass & crowns catch crisp rim highlights
+  const cityMoonLight = new THREE.DirectionalLight('#7ea8ff', 0.65);
+  cityMoonLight.position.set(30, 85, FRONT_Z - 20);
+  outsideGroup.add(cityMoonLight);
 
   // ===== 6. Warm, Balanced Library Hall Lighting + REAL Poly Haven Chandelier_01 Models! =====
   const frontHallLight = new THREE.PointLight('#ffd294', 44, 52, 1.25);
@@ -570,12 +728,12 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     });
   });
 
-  // ===== 7. REAL Poly Haven WoodenTable_01 & WoodenChair_01 Across the Reading Hall (Generous Grand Scale + Books!) =====
+  // ===== 7. REAL Poly Haven WoodenTable_01 & WoodenChair_01 Across the Reading Hall (Ergonomic Real-World Scale + Books!) =====
   const TABLE_W = 7.4;
-  const TABLE_H = 2.95;
+  const TABLE_H = 2.55; // Real 74cm ergonomic desk height relative to 5.15-unit seated students!
   const TABLE_D = 3.0;
-  const CHAIR_DX = 1.85;
-  const CHAIR_DZ = 1.92;
+  const CHAIR_DX = 1.88;
+  const CHAIR_DZ = 2.02;
 
   const tablePositions = [
     [-10.2, -7.2], [10.2, -7.2],
@@ -668,9 +826,11 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     });
   });
 
-  // Load REAL Poly Haven WoodenChair_01 (4 larger sculpted chairs per reading table!)
+  // Load REAL Poly Haven WoodenChair_01 (4 wider, comfortable sculpted armchairs per reading table — zero armrest clipping!)
   gltfLoader.load('assets/models/WoodenChair_01/WoodenChair_01_1k.gltf', (gltf) => {
-    const template = normalizeGltf(gltf.scene, 3.28);
+    const template = normalizeGltf(gltf.scene, 3.25);
+    // Widen seat & armrest spacing slightly so seated students fit comfortably inside the armrests with zero clipping
+    template.scale.set(1.26, 1.0, 1.18);
     tablePositions.forEach(([x, z]) => {
       [
         [x - CHAIR_DX, z + CHAIR_DZ, Math.PI],
@@ -686,7 +846,7 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     });
   });
 
-  // ===== 8. Toggleable Real 3D Studying Students (Downloaded ReadyPlayerMe student_avatar.glb — Zero Clipping!) =====
+  // ===== 8. Toggleable Real 3D Studying Students (Downloaded ReadyPlayerMe student_avatar.glb — Ergonomic Reading Pose!) =====
   const studentsGroup = new THREE.Group();
   libGroup.add(studentsGroup);
   const animatedStudents = [];
@@ -709,12 +869,12 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
     const rawBox = new THREE.Box3().setFromObject(src);
     const rawSize = new THREE.Vector3();
     rawBox.getSize(rawSize);
-    // Natural human scale matching the enlarged 2.95-tall reading tables & 3.28-tall wooden chairs
-    const baseScale = 4.45 / Math.max(rawSize.y, 0.001);
+    // Real-world human scale (5.05 units ≈ 1.72m) matching 2.55-unit ergonomic tables & 3.25-unit armchairs
+    const baseScale = 5.05 / Math.max(rawSize.y, 0.001);
 
     studentSeats.forEach((seat, idx) => {
       const avatar = SkeletonUtils.clone(src);
-      const scaleVar = 0.96 + (idx % 4) * 0.02;
+      const scaleVar = 0.97 + (idx % 3) * 0.02;
       avatar.scale.setScalar(baseScale * scaleVar);
 
       // Give each student distinct natural academic attire & cozy winter knit beanie colors
@@ -731,52 +891,55 @@ export function createLibraryEnvironment(scene, maxAniso = 8) {
         }
       });
 
-      // Collect standard humanoid bones (no colons!) and apply relative seated pose preserving rest quaternions!
+      // Collect standard humanoid bones and apply anatomically natural seated reading pose!
       const bones = {};
       avatar.traverse((obj) => {
         if (obj.isBone) bones[obj.name] = obj;
       });
 
-      // Legs: LeftUpLeg/RightUpLeg rest pose is 180° around Z, so rotateX(+1.42) swings thighs cleanly forward!
-      if (bones.LeftUpLeg) bones.LeftUpLeg.rotateX(1.42);
-      if (bones.RightUpLeg) bones.RightUpLeg.rotateX(1.42);
-      // Knees: rotateX(-1.38) bends shins cleanly down toward the floor!
-      if (bones.LeftLeg) bones.LeftLeg.rotateX(-1.38);
-      if (bones.RightLeg) bones.RightLeg.rotateX(-1.38);
+      // Legs: thighs straight forward (+1.48), knees bent 90 deg down (-1.45) so feet rest squarely on the floor
+      if (bones.LeftUpLeg) bones.LeftUpLeg.rotateX(1.48);
+      if (bones.RightUpLeg) bones.RightUpLeg.rotateX(1.48);
+      if (bones.LeftLeg) bones.LeftLeg.rotateX(-1.45);
+      if (bones.RightLeg) bones.RightLeg.rotateX(-1.45);
 
-      // Gentle upright study posture (head stays cleanly clear of the green banker's lamp!)
+      // Upright focused study posture — head well above the 2.55 tabletop looking comfortably down at the notebook!
       if (bones.Spine) bones.Spine.rotateX(0.08);
-      if (bones.Spine1) bones.Spine1.rotateX(0.08);
-      if (bones.Neck) bones.Neck.rotateX(0.10);
+      if (bones.Spine1) bones.Spine1.rotateX(0.06);
+      if (bones.Neck) bones.Neck.rotateX(0.12);
       if (bones.Head) {
-        bones.Head.rotateX(0.16);
-        bones.Head.rotateY(((idx % 3) - 1) * 0.12);
+        bones.Head.rotateX(0.24);
+        bones.Head.rotateY(((idx % 3) - 1) * 0.10);
       }
 
-      // Arms: ReadyPlayerMe starts in relaxed A-pose; bring arms forward & elbows bent naturally over the reading table!
-      if (bones.LeftArm) {
-        bones.LeftArm.rotateX(0.62);
-        bones.LeftArm.rotateZ(-0.18);
+      // Helper: aim a bone's +Y axis along an exact desired direction in avatar space (0% guessing, 100% exact!)
+      function aimBone(bone, dirX, dirY, dirZ) {
+        if (!bone || !bone.parent) return;
+        avatar.updateMatrixWorld(true);
+        const parentQ = new THREE.Quaternion();
+        bone.parent.getWorldQuaternion(parentQ);
+        const boneQ = new THREE.Quaternion();
+        bone.getWorldQuaternion(boneQ);
+        const curDir = new THREE.Vector3(0, 1, 0).applyQuaternion(boneQ).normalize();
+        const targetDir = new THREE.Vector3(dirX, dirY, dirZ).normalize();
+        const deltaWorld = new THREE.Quaternion().setFromUnitVectors(curDir, targetDir);
+        const newWorldQ = deltaWorld.multiply(boneQ);
+        bone.quaternion.copy(parentQ.invert().multiply(newWorldQ));
+        avatar.updateMatrixWorld(true);
       }
-      if (bones.RightArm) {
-        bones.RightArm.rotateX(0.62);
-        bones.RightArm.rotateZ(0.18);
-      }
-      if (bones.LeftForeArm) {
-        bones.LeftForeArm.rotateZ(0.55);
-        bones.LeftForeArm.rotateX(0.35);
-      }
-      if (bones.RightForeArm) {
-        bones.RightForeArm.rotateZ(-0.55);
-        bones.RightForeArm.rotateX(0.35);
-      }
+
+      // Arms: exact ergonomic reading pose — upper arms down & forward, forearms resting right over the open notebook!
+      aimBone(bones.LeftArm, 0.18, -0.78, 0.60);
+      aimBone(bones.RightArm, -0.18, -0.78, 0.60);
+      aimBone(bones.LeftForeArm, -0.36, -0.12, 0.92);
+      aimBone(bones.RightForeArm, 0.36, -0.12, 0.92);
 
       const stuWrapper = new THREE.Group();
       const chairX = seat.tx + seat.sx * CHAIR_DX;
       const chairZ = seat.tz + seat.sz * CHAIR_DZ;
-      // Offset slightly forward (+0.20 toward the table) on the wider 3.28-tall chair seat -> ZERO backrest clipping & ZERO lamp clipping!
-      const forwardZ = Math.cos(seat.rotY) * 0.20;
-      stuWrapper.position.set(chairX, FLOOR_Y - 0.96, chairZ + forwardZ);
+      // Sit squarely centered on the widened WoodenChair_01 seat cushion (+0.08 forward) with hips at ~FLOOR_Y + 1.56!
+      const forwardZ = Math.cos(seat.rotY) * 0.08;
+      stuWrapper.position.set(chairX, FLOOR_Y - 1.15, chairZ + forwardZ);
       stuWrapper.rotation.y = seat.rotY;
       stuWrapper.add(avatar);
       studentsGroup.add(stuWrapper);
