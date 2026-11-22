@@ -18,11 +18,19 @@
 ├── desk-3d.js          # 3D 主场景、书本展开/翻页动画、UV 点击下载与交互逻辑
 ├── desk-data.js        # 7 门科目备考内容与资料清单数据
 ├── desk-sound.js       # Web Audio API 物理建模拟真交互音效引擎（含木地板/地毯脚步声）
-├── library-env.js      # 宽阔双层大学图书馆大厅、远景城市天际线、烟花与自习同学
+├── library-env.js      # 双层大学图书馆大厅、窗外夜景高楼群、星空烟花与真实 3D 模型加载
 ├── assets/
-│   └── score-419.jpg   # 419 分初试成绩单图片
+│   ├── score-419.jpg   # 419 分初试成绩单图片
+│   └── models/         # 真实 3D 模型（Poly Haven 吊灯/木桌/木椅/盆栽 + ReadyPlayerMe 自习人物）
 └── download/           # 免费备考资料（408 四科 XMind 思维导图、高数 PDF、全文 MD/PDF）
 ```
+
+---
+
+## 🧩 3D 资产致谢
+
+- 室内复古吊灯（`Chandelier_01`）、实木自习长桌（`WoodenTable_01`）、雕花木椅（`WoodenChair_01`）、桌面盆栽（`potted_plant_04`）来自 [Poly Haven](https://polyhaven.com/models)（CC0 开源协议）。
+- 自习人物模型（`student_avatar.glb`）来自 Three.js 官方 ReadyPlayerMe 示例模型。
 
 ---
 
