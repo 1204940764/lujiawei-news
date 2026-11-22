@@ -2,13 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=20';
-import { deskSound } from './desk-sound.js?v=20';
-import { createLibraryEnvironment } from './library-env.js?v=20';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=22';
+import { deskSound } from './desk-sound.js?v=22';
+import { createLibraryEnvironment } from './library-env.js?v=22';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -125,13 +122,13 @@ function getResponsivePreset() {
       maxDistance: 18.0
     };
   }
-  // Widescreen desktop — wide open view of the grand university library hall!
+  // Widescreen desktop — shows ALL 7 books, sticky notes & mug cleanly + grand library, Lujiazui skyline & fireworks!
   return {
     isMobile: false,
-    fov: 42,
-    fogDensity: 0.0024,
-    defaultCamPos: new THREE.Vector3(0.12, 4.1, 6.1),
-    defaultTarget: new THREE.Vector3(0.05, 0.35, -0.45),
+    fov: 46,
+    fogDensity: 0.0016,
+    defaultCamPos: new THREE.Vector3(0.06, 3.05, 5.88),
+    defaultTarget: new THREE.Vector3(0.02, 0.82, -2.8),
     heroScale: 1.44,
     heroCamPos: new THREE.Vector3(0.0, 3.38, 4.15),
     heroCamTarget: new THREE.Vector3(0.0, 1.42, 1.12),
@@ -168,21 +165,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, viewportPreset.isMobile
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.12;
+renderer.toneMappingExposure = 0.94;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 canvasContainer.appendChild(renderer.domElement);
-
-// ===== Selective HDR UnrealBloom Post-Processing (Optical Glow on Fireworks, City Lights & Chandeliers; Zero Blur on Book Text!) =====
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(Math.floor(window.innerWidth * 0.5), Math.floor(window.innerHeight * 0.5)),
-  0.46, // Subtle cinematic bloom strength
-  0.58, // Soft optical lens radius
-  0.92  // High HDR threshold so ONLY true light sources & fireworks bloom, keeping book paper/text 100% razor-sharp!
-);
-composer.addPass(bloomPass);
-composer.addPass(new OutputPass());
 
 // Studio PMREM Environment for realistic PBR reflections on brass, ceramic, wood & foil
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -843,22 +828,8 @@ stageRimSpot.target.position.set(0.0, 0.2, 0.0);
 scene.add(stageRimSpot);
 scene.add(stageRimSpot.target);
 
-// Subtle Volumetric Stage Light Beam descending from above
-const stageBeamMat = new THREE.MeshBasicMaterial({
-  color: '#ffcf8f',
-  transparent: true,
-  opacity: 0.032,
-  depthWrite: false,
-  side: THREE.DoubleSide,
-  blending: THREE.AdditiveBlending
-});
-const stageBeam = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.45, 3.65, 6.9, 28, 1, true),
-  stageBeamMat
-);
-stageBeam.position.set(0.1, 3.4, 0.65);
-stageBeam.rotation.x = -0.18;
-scene.add(stageBeam);
+// No harsh geometric light-cone mesh (clean natural lighting only!)
+const stageBeamMat = { opacity: 0 };
 
 // Daylight / Fill Directional Light (shadow-free for high performance)
 const fillLight = new THREE.DirectionalLight('#b7ccff', 0.16);
@@ -1592,51 +1563,40 @@ stickyHitbox.userData.interactiveRoot = stickyGroup;
 stickyGroup.add(stickyHitbox);
 interactables.push(stickyHitbox);
 
-// ===== Mini Potted Succulent =====
+// ===== Real Scanned Potted Succulent (Poly Haven CC0 potted_plant_04 GLTF!) =====
 const plantGroup = new THREE.Group();
 plantGroup.position.set(-3.45, 0, -0.22);
 scene.add(plantGroup);
 
-const pot = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.24, 0.17, 0.34, 24),
-  new THREE.MeshStandardMaterial({ color: '#b56345', roughness: 0.68 })
-);
-pot.position.y = 0.17;
-pot.castShadow = true;
-pot.receiveShadow = true;
-plantGroup.add(pot);
-
-const soil = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.21, 0.21, 0.03, 20),
-  new THREE.MeshStandardMaterial({ color: '#3b2b22', roughness: 0.95 })
-);
-soil.position.y = 0.33;
-plantGroup.add(soil);
-
-const leafMat = new THREE.MeshStandardMaterial({ color: '#588753', roughness: 0.48 });
-for (let layer = 0; layer < 2; layer++) {
-  const count = layer === 0 ? 7 : 5;
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2 + layer * 0.4;
-    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.075 - layer * 0.015, 0.24 - layer * 0.04, 10), leafMat);
-    const radius = layer === 0 ? 0.10 : 0.05;
-    leaf.position.set(Math.cos(angle) * radius, 0.42 + layer * 0.06, Math.sin(angle) * radius);
-    leaf.rotation.z = -Math.cos(angle) * (0.55 - layer * 0.22);
-    leaf.rotation.x = Math.sin(angle) * (0.55 - layer * 0.22);
-    leaf.castShadow = true;
-    plantGroup.add(leaf);
-  }
-}
+const deskGltfLoader = new GLTFLoader();
+deskGltfLoader.load('assets/models/potted_plant_04/potted_plant_04_1k.gltf', (gltf) => {
+  const model = gltf.scene;
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+  const scale = 0.62 / Math.max(size.y, 0.001);
+  model.scale.setScalar(scale);
+  model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+  model.traverse((c) => {
+    if (c.isMesh) {
+      c.castShadow = true;
+      c.receiveShadow = true;
+    }
+  });
+  plantGroup.add(model);
+});
 
 plantGroup.userData = {
   type: 'plant',
   wiggleTime: 0
 };
 const plantHitbox = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.28, 0.22, 0.62, 14),
+  new THREE.CylinderGeometry(0.32, 0.24, 0.68, 14),
   new THREE.MeshBasicMaterial({ visible: false })
 );
-plantHitbox.position.y = 0.31;
+plantHitbox.position.y = 0.34;
 plantHitbox.userData.interactiveRoot = plantGroup;
 plantGroup.add(plantHitbox);
 interactables.push(plantHitbox);
@@ -1795,25 +1755,24 @@ let isLampOn = true;
 function updateLightingMode() {
   libraryEnv.setLightingMode(isLampOn);
   if (isLampOn) {
-    // Warm, luminous, hopeful evening library lighting (bright & inviting, never gloomy!)
+    // Balanced, warm, hopeful evening library lighting — crisp text & rich contrast, zero white blowout!
     scene.background.copy(NIGHT_BG);
     scene.fog.color.copy(NIGHT_BG);
-    scene.environmentIntensity = 0.44;
-    stageKeySpot.intensity = 68;
-    stageRimSpot.intensity = 28;
-    stageBeamMat.opacity = 0.028;
-    lampSpot.intensity = 26;
-    lampBulbLight.intensity = 4.6;
-    bulbMat.emissiveIntensity = 2.4;
-    touchRingMat.emissiveIntensity = 1.6;
-    moteMat.opacity = 0.58;
-    ambientLight.intensity = 0.46;
-    hemiLight.color.set('#ffebd0');
-    hemiLight.groundColor.set('#5c3e2b');
-    hemiLight.intensity = 0.58;
-    fillLight.intensity = 0.42;
-    fillLight.color.set('#dce8ff');
-    rightWarmFill.intensity = 2.6;
+    scene.environmentIntensity = 0.32;
+    stageKeySpot.intensity = 28;
+    stageRimSpot.intensity = 16;
+    lampSpot.intensity = 16;
+    lampBulbLight.intensity = 2.4;
+    bulbMat.emissiveIntensity = 1.6;
+    touchRingMat.emissiveIntensity = 1.2;
+    moteMat.opacity = 0.42;
+    ambientLight.intensity = 0.34;
+    hemiLight.color.set('#ffe6c7');
+    hemiLight.groundColor.set('#4c3424');
+    hemiLight.intensity = 0.42;
+    fillLight.intensity = 0.28;
+    fillLight.color.set('#d2e2ff');
+    rightWarmFill.intensity = 1.5;
     document.body.classList.remove('day-mode');
   } else {
     scene.background.copy(DAY_BG);
@@ -2307,8 +2266,6 @@ function handleViewportResize() {
   camera.updateProjectionMatrix();
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, viewportPreset.isMobile ? 1.75 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-  bloomPass.resolution.set(Math.floor(window.innerWidth * 0.5), Math.floor(window.innerHeight * 0.5));
 
   if (!activeItemId) {
     animateCameraTo(DEFAULT_CAM_POS, DEFAULT_TARGET, 320);
@@ -2583,7 +2540,7 @@ function animate(now = performance.now()) {
   } else {
     controls.update();
   }
-  composer.render();
+  renderer.render(scene, camera);
 }
 
 updateLightingMode();
