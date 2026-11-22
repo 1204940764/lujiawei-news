@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=14';
-import { deskSound } from './desk-sound.js?v=14';
-import { createLibraryEnvironment } from './library-env.js?v=14';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=15';
+import { deskSound } from './desk-sound.js?v=15';
+import { createLibraryEnvironment } from './library-env.js?v=15';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -127,9 +127,9 @@ function getResponsivePreset() {
     fogDensity: 0.0038,
     defaultCamPos: new THREE.Vector3(0.12, 4.1, 6.1),
     defaultTarget: new THREE.Vector3(0.05, 0.35, -0.45),
-    heroScale: 1.34,
-    heroCamPos: new THREE.Vector3(0.0, 3.72, 4.55),
-    heroCamTarget: new THREE.Vector3(0.0, 1.40, 1.08),
+    heroScale: 1.44,
+    heroCamPos: new THREE.Vector3(0.0, 3.38, 4.15),
+    heroCamTarget: new THREE.Vector3(0.0, 1.42, 1.12),
     maxDistance: 26.0
   };
 }
@@ -158,8 +158,8 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: 'default'
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
-// Keep Retina text razor-sharp (1.85x desktop / 1.5x mobile); power savings come from 1 shadow map, Lambert hall & adaptive FPS!
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, viewportPreset.isMobile ? 1.5 : 1.85));
+// Native 2x Retina sharpness for razor-crisp book typography; power savings come from 1 shadow map, Lambert hall & adaptive FPS!
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, viewportPreset.isMobile ? 1.75 : 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -478,15 +478,15 @@ function createBookSpineTexture(book) {
   return tex;
 }
 
-// ===== HD Multi-Page Book Spread Renderer (1024x1380 per page!) =====
+// ===== Ultra-HD Multi-Page Book Spread Renderer (1.5x Super-Sampled 1536x2070 per page!) =====
 function drawPaperBase(ctx, book, side, pageNum, totalPages) {
-  // Warm archival ivory paper
-  ctx.fillStyle = '#faf4e8';
+  // Warm matte archival book paper (slightly richer tone so bright lights never wash out text)
+  ctx.fillStyle = '#f2e9d8';
   ctx.fillRect(0, 0, 1024, 1380);
 
   // Subtle paper fiber speckles
-  for (let i = 0; i < 1800; i++) {
-    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(120,92,62,0.025)' : 'rgba(255,255,255,0.04)';
+  for (let i = 0; i < 1400; i++) {
+    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(110,82,54,0.025)' : 'rgba(255,255,255,0.035)';
     ctx.fillRect(Math.random() * 1024, Math.random() * 1380, 3, 2);
   }
 
@@ -508,26 +508,26 @@ function drawPaperBase(ctx, book, side, pageNum, totalPages) {
     ctx.fillRect(0, 0, 134, 1380);
   }
 
-  // Running header
+  // Crisp high-contrast running header
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#8f7d6c';
-  ctx.font = '600 26px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
+  ctx.fillStyle = '#5a493c';
+  ctx.font = '700 26px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
   ctx.fillText(book.title, 86, 86);
   ctx.textAlign = 'right';
   ctx.fillText(book.category, 938, 86);
   ctx.textAlign = 'left';
 
-  ctx.fillStyle = 'rgba(136, 66, 46, 0.25)';
+  ctx.fillStyle = 'rgba(116, 54, 36, 0.36)';
   ctx.fillRect(86, 110, 852, 2.5);
 
   // Page footer + subtle page-turn cue
-  ctx.fillStyle = '#9a8978';
-  ctx.font = '500 24px Georgia, serif';
+  ctx.fillStyle = '#5f4d40';
+  ctx.font = '600 24px Georgia, serif';
   ctx.textAlign = 'center';
   ctx.fillText(`— ${String(pageNum).padStart(2, '0')} / ${String(totalPages).padStart(2, '0')} —`, 512, 1326);
 
-  ctx.font = '600 22px -apple-system, "PingFang SC", sans-serif';
-  ctx.fillStyle = 'rgba(136, 66, 46, 0.65)';
+  ctx.font = '700 22px -apple-system, "PingFang SC", sans-serif';
+  ctx.fillStyle = '#7a3320';
   if (side === 'left' && pageNum > 1) {
     ctx.textAlign = 'left';
     ctx.fillText('← 点击翻回上一页', 86, 1326);
@@ -539,14 +539,20 @@ function drawPaperBase(ctx, book, side, pageNum, totalPages) {
 }
 
 function makePageCanvasTexture(drawFn) {
+  // 1.5x super-sampled Retina canvas (1536x2070) keeping exact 1024x1380 logical coordinates!
+  const SCALE = 1.5;
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 1380;
+  canvas.width = Math.round(1024 * SCALE);
+  canvas.height = Math.round(1380 * SCALE);
   const ctx = canvas.getContext('2d');
+  ctx.scale(SCALE, SCALE);
   drawFn(ctx);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = maxAniso;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   return tex;
 }
 
@@ -563,16 +569,16 @@ function createBookSpreads(book) {
     ctx.fillStyle = book.color;
     ctx.fillRect(86, 166, 14, 126);
 
-    ctx.fillStyle = '#261b16';
+    ctx.fillStyle = '#140e0b';
     ctx.font = '800 64px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
     ctx.fillText(book.shortName + ' · 备考志', 124, 232);
 
-    ctx.fillStyle = '#88422e';
+    ctx.fillStyle = '#7a321e';
     ctx.font = '700 32px -apple-system, "PingFang SC", sans-serif';
     ctx.fillText(book.scoreBadge, 124, 290);
 
     // Subtle ruled lines for summary
-    ctx.strokeStyle = 'rgba(155, 132, 110, 0.22)';
+    ctx.strokeStyle = 'rgba(128, 102, 78, 0.24)';
     ctx.lineWidth = 2;
     for (let y = 398; y <= 760; y += 68) {
       ctx.beginPath();
@@ -581,23 +587,23 @@ function createBookSpreads(book) {
       ctx.stroke();
     }
 
-    ctx.fillStyle = '#3b2e27';
-    ctx.font = '500 35px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
+    ctx.fillStyle = '#1d1511';
+    ctx.font = '600 35px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
     wrapCanvasText(ctx, book.summary, 92, 386, 820, 68, 5);
 
     // Editorial Quote Card
-    ctx.fillStyle = 'rgba(136, 66, 46, 0.08)';
+    ctx.fillStyle = 'rgba(122, 54, 34, 0.09)';
     ctx.fillRect(86, 825, 836, 258);
     ctx.fillStyle = book.color;
     ctx.fillRect(86, 825, 12, 258);
 
-    ctx.fillStyle = '#2c201a';
+    ctx.fillStyle = '#17100d';
     ctx.font = '700 34px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
     wrapCanvasText(ctx, book.quote, 128, 902, 760, 58, 4);
 
     // Cover tag note
-    ctx.fillStyle = '#756256';
-    ctx.font = '600 26px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = '#4a3a30';
+    ctx.font = '700 27px -apple-system, "PingFang SC", sans-serif';
     ctx.fillText(`关键词：${book.coverNote}`, 86, 1166);
   });
 
@@ -605,13 +611,12 @@ function createBookSpreads(book) {
   const p2 = makePageCanvasTexture((ctx) => {
     drawPaperBase(ctx, book, 'right', 2, totalPages);
 
-    ctx.fillStyle = '#261b16';
+    ctx.fillStyle = '#140e0b';
     ctx.font = '800 46px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
     ctx.fillText('01 · 备考路线与核心方法', 112, 206);
 
     let y = 294;
     part1.forEach((item, idx) => {
-      // Numbered badge
       ctx.fillStyle = book.color;
       ctx.beginPath();
       ctx.arc(132, y - 12, 22, 0, Math.PI * 2);
@@ -622,8 +627,8 @@ function createBookSpreads(book) {
       ctx.fillText(String(idx + 1), 132, y - 4);
       ctx.textAlign = 'left';
 
-      ctx.fillStyle = '#362a23';
-      ctx.font = '500 31px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
+      ctx.fillStyle = '#1b1410';
+      ctx.font = '600 31px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
       const lines = wrapCanvasText(ctx, item, 174, y, 742, 52, 5);
       y += lines * 52 + 46;
     });
@@ -633,7 +638,7 @@ function createBookSpreads(book) {
   const p3 = makePageCanvasTexture((ctx) => {
     drawPaperBase(ctx, book, 'left', 3, totalPages);
 
-    ctx.fillStyle = '#261b16';
+    ctx.fillStyle = '#140e0b';
     ctx.font = '800 46px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
     ctx.fillText('02 · 进阶复盘与实战细节', 86, 206);
 
@@ -654,8 +659,8 @@ function createBookSpreads(book) {
       ctx.fillText(String(part1.length + idx + 1), 106, y - 4);
       ctx.textAlign = 'left';
 
-      ctx.fillStyle = '#362a23';
-      ctx.font = '500 31px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
+      ctx.fillStyle = '#1b1410';
+      ctx.font = '600 31px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
       const lines = wrapCanvasText(ctx, item, 148, y, 748, 52, 5);
       y += lines * 52 + 46;
     });
@@ -666,12 +671,12 @@ function createBookSpreads(book) {
   const p4 = makePageCanvasTexture((ctx) => {
     drawPaperBase(ctx, book, 'right', 4, totalPages);
 
-    ctx.fillStyle = '#261b16';
+    ctx.fillStyle = '#140e0b';
     ctx.font = '800 46px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
     ctx.fillText('03 · 本科资料与免费下载', 112, 206);
 
-    ctx.fillStyle = '#88422e';
-    ctx.font = '600 28px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = '#7a321e';
+    ctx.font = '700 28px -apple-system, "PingFang SC", sans-serif';
     ctx.fillText('👆 直接点击下方资料卡片即可一键下载或打开：', 112, 268);
 
     let y = 330;
@@ -696,24 +701,22 @@ function createBookSpreads(book) {
         isExternal: res.isExternal
       });
 
-      // Card fill + subtle border + left accent bar
-      ctx.fillStyle = 'rgba(136, 66, 46, 0.09)';
+      ctx.fillStyle = 'rgba(122, 54, 34, 0.09)';
       ctx.fillRect(cardX, y, cardW, cardH);
-      ctx.strokeStyle = 'rgba(136, 66, 46, 0.28)';
+      ctx.strokeStyle = 'rgba(122, 54, 34, 0.34)';
       ctx.lineWidth = 2;
       ctx.strokeRect(cardX, y, cardW, cardH);
       ctx.fillStyle = book.color;
       ctx.fillRect(cardX, y, 12, cardH);
 
-      ctx.fillStyle = '#261b16';
+      ctx.fillStyle = '#140e0b';
       ctx.font = '700 31px -apple-system, "PingFang SC", "Noto Sans SC", sans-serif';
       ctx.fillText(`${res.icon}  ${res.name}`, cardX + 34, y + 60);
 
-      ctx.fillStyle = '#7a6558';
-      ctx.font = '500 24px -apple-system, "PingFang SC", sans-serif';
+      ctx.fillStyle = '#4f3f35';
+      ctx.font = '600 24px -apple-system, "PingFang SC", sans-serif';
       ctx.fillText(res.tag, cardX + 34, y + 108);
 
-      // Clickable action badge on the right side of the card
       const pillW = 152;
       const pillH = 54;
       const pillX = cardX + cardW - pillW - 26;
@@ -729,16 +732,15 @@ function createBookSpreads(book) {
       y += 176;
     });
 
-    // Closing encouragement stamp
-    ctx.strokeStyle = 'rgba(136, 66, 46, 0.35)';
+    ctx.strokeStyle = 'rgba(122, 54, 34, 0.42)';
     ctx.lineWidth = 3;
     ctx.strokeRect(112, 1050, 804, 150);
-    ctx.fillStyle = '#88422e';
+    ctx.fillStyle = '#7a321e';
     ctx.font = '700 32px -apple-system, "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('🌱 坚持到最后，祝你一战上岸！', 514, 1116);
-    ctx.fillStyle = '#6e5c50';
-    ctx.font = '500 24px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillStyle = '#4a3a30';
+    ctx.font = '600 24px -apple-system, "PingFang SC", sans-serif';
     ctx.fillText('按 ESC 或点击空白处合上书本放回书桌', 514, 1166);
     ctx.textAlign = 'left';
   });
@@ -959,19 +961,23 @@ function createBookMesh(book) {
   });
   const rightPageTopMat = new THREE.MeshStandardMaterial({
     map: spreads[0].right,
-    roughness: 0.78
+    roughness: 0.94,
+    metalness: 0.0
   });
   const leftPageMat = new THREE.MeshStandardMaterial({
     map: spreads[0].left,
-    roughness: 0.78
+    roughness: 0.94,
+    metalness: 0.0
   });
   const leafFrontMat = new THREE.MeshStandardMaterial({
     map: spreads[0].right,
-    roughness: 0.78
+    roughness: 0.94,
+    metalness: 0.0
   });
   const leafBackMat = new THREE.MeshStandardMaterial({
     map: spreads[1].left,
-    roughness: 0.78
+    roughness: 0.94,
+    metalness: 0.0
   });
 
   const boardT = 0.018;
@@ -2150,7 +2156,7 @@ function handleViewportResize() {
   camera.fov = viewportPreset.fov;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, viewportPreset.isMobile ? 1.5 : 1.85));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, viewportPreset.isMobile ? 1.75 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   if (!activeItemId) {
