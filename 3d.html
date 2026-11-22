@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>一战上岸师大 · 3D 备考书桌</title>
+  <style>
+    :root {
+      --bg-hud: rgba(20, 16, 15, 0.72);
+      --border-hud: rgba(255, 224, 186, 0.20);
+      --text-main: #f8efe6;
+      --text-muted: rgba(245, 230, 214, 0.72);
+      --accent: #e5b476;
+      --drawer-bg: rgba(20, 15, 13, 0.88);
+      --card-bg: rgba(255, 245, 234, 0.07);
+      --card-hover: rgba(255, 245, 234, 0.15);
+      --shadow: 0 20px 52px rgba(0, 0, 0, 0.55);
+    }
+
+    body.day-mode {
+      --bg-hud: rgba(253, 246, 238, 0.78);
+      --border-hud: rgba(136, 66, 46, 0.22);
+      --text-main: #2e201b;
+      --text-muted: #69544b;
+      --accent: #88422e;
+      --drawer-bg: rgba(252, 245, 237, 0.92);
+      --card-bg: rgba(136, 66, 46, 0.07);
+      --card-hover: rgba(136, 66, 46, 0.14);
+      --shadow: 0 18px 44px rgba(86, 47, 32, 0.18);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", sans-serif;
+      background: #090809;
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    #scene-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    /* ===== Loading Overlay ===== */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: radial-gradient(circle at center, #1e1612 0%, #090809 100%);
+      color: #f6e7d4;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+    #loading-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .loader-ring {
+      width: 42px;
+      height: 42px;
+      border: 3px solid rgba(229, 180, 118, 0.22);
+      border-top-color: #e5b476;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ===== Top HUD (Ultra-Minimal: Only Study/Rest Pill + 2D Button) ===== */
+    .hud-top {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .hud-actions {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .hud-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 15px;
+      border-radius: 999px;
+      border: 1px solid var(--border-hud);
+      background: var(--bg-hud);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      backdrop-filter: blur(14px) saturate(140%);
+      transition: transform 0.2s ease, background 0.25s ease, border-color 0.25s ease;
+    }
+    .hud-btn:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+    .hud-btn.primary {
+      background: linear-gradient(135deg, rgba(168, 94, 62, 0.88), rgba(136, 66, 46, 0.92));
+      color: #fff8f0;
+      border-color: rgba(255, 224, 192, 0.35);
+    }
+
+    /* ===== Study / Coffee Rest Pill & Easter-Egg Toast ===== */
+    #study-timer-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(229, 180, 118, 0.48);
+      background: rgba(229, 180, 118, 0.16);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      transition: transform 0.2s ease, border-color 0.25s ease, background 0.25s ease;
+    }
+    #study-timer-pill:hover {
+      transform: translateY(-2px);
+    }
+    #study-timer-pill.resting {
+      border-color: rgba(160, 210, 175, 0.45);
+      background: rgba(110, 175, 130, 0.16);
+      color: #9de0b0;
+    }
+    body.day-mode #study-timer-pill.resting {
+      color: #2c6e44;
+    }
+
+    #easter-toast {
+      position: fixed;
+      top: 84px;
+      left: 50%;
+      transform: translate(-50%, -14px) scale(0.96);
+      z-index: 55;
+      pointer-events: none;
+      padding: 11px 20px;
+      border-radius: 999px;
+      background: var(--bg-hud);
+      border: 1px solid rgba(229, 180, 118, 0.45);
+      color: var(--text-main);
+      font-size: 13.5px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      box-shadow: var(--shadow);
+      -webkit-backdrop-filter: blur(16px) saturate(140%);
+      backdrop-filter: blur(16px) saturate(140%);
+      opacity: 0;
+      transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+      max-width: calc(100vw - 32px);
+      text-align: center;
+    }
+    #easter-toast.visible {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+    }
+
+    /* ===== Hover Tooltip ===== */
+    #hover-tooltip {
+      position: fixed;
+      z-index: 45;
+      pointer-events: none;
+      padding: 9px 14px;
+      border-radius: 12px;
+      background: rgba(16, 13, 12, 0.92);
+      color: #fff8f0;
+      border: 1px solid rgba(229, 180, 118, 0.42);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.48);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.16s ease, transform 0.16s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    #hover-tooltip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #hover-tooltip strong {
+      font-size: 13px;
+      font-weight: 700;
+    }
+    #hover-tooltip span {
+      font-size: 11px;
+      color: #e5b476;
+    }
+
+    .bc-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border-hud);
+      background: var(--card-bg);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+    .bc-btn:hover {
+      background: var(--card-hover);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .bc-btn.accent {
+      background: rgba(229, 180, 118, 0.16);
+      border-color: rgba(229, 180, 118, 0.45);
+      color: var(--accent);
+    }
+
+    /* ===== Centered Compact Modal ONLY for 419 Score Stand ===== */
+    #profile-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(8, 6, 6, 0.58);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+    }
+    #profile-modal.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .profile-card-box {
+      width: min(560px, 100%);
+      max-height: 82vh;
+      overflow-y: auto;
+      border-radius: 24px;
+      background: var(--drawer-bg);
+      border: 1px solid var(--border-hud);
+      box-shadow: var(--shadow);
+      padding: 24px 26px;
+      user-select: text;
+    }
+    .profile-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .profile-top h2 {
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .score-shot-wrap {
+      margin: 12px 0 16px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border-hud);
+    }
+    .score-shot-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .profile-block {
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-hud);
+    }
+    .profile-block h3 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .profile-block p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    @media (max-width: 720px) {
+      .hud-top {
+        top: calc(10px + env(safe-area-inset-top, 0px));
+        left: 10px;
+        right: 10px;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+      }
+      .brand-card {
+        padding: 8px 12px;
+        border-radius: 14px;
+      }
+      .brand-card h1 {
+        font-size: 13px;
+        gap: 6px;
+      }
+      .brand-card .score-pill {
+        display: none;
+      }
+      .brand-card p {
+        display: none;
+      }
+      .hud-actions {
+        gap: 6px;
+        flex-wrap: nowrap;
+      }
+      .hud-btn {
+        padding: 7px 10px;
+        font-size: 12px;
+        gap: 4px;
+      }
+      .hud-btn .btn-label-long {
+        display: none;
+      }
+      #study-timer-pill {
+        position: fixed;
+        top: calc(54px + env(safe-area-inset-top, 0px));
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 12px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      #easter-toast {
+        top: calc(92px + env(safe-area-inset-top, 0px));
+        font-size: 12.5px;
+        padding: 9px 15px;
+      }
+      #quick-dock {
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        padding: 6px 10px;
+        gap: 4px;
+        max-width: calc(100vw - 16px);
+      }
+      .dock-pill {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      #book-controls {
+        width: calc(100vw - 16px);
+        border-radius: 20px;
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        padding: 8px 10px;
+        gap: 6px;
+        flex-wrap: wrap;
+        max-width: calc(100vw - 16px);
+      }
+      .bc-btn {
+        padding: 7px 11px;
+        font-size: 12px;
+      }
+      .bc-divider {
+        display: none;
+      }
+      .profile-card-box {
+        padding: 18px 16px;
+        border-radius: 20px;
+      }
+    }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="loading-overlay">
+    <div class="loader-ring"></div>
+    <div style="font-size:14px; letter-spacing:1px;">正在点亮 3D 舞台书桌…</div>
+  </div>
+
+  <div id="scene-container"></div>
+
+  <header class="hud-top">
+    <div class="hud-actions">
+      <button type="button" id="btn-people" class="hud-btn" title="切换图书馆有人自习 / 无人静谧场景">
+        <span>👥</span><span>有人自习</span>
+      </button>
+      <button type="button" id="study-timer-pill" class="resting" title="点击切换咖啡休息 / 专注学习">☕ 咖啡休息中</button>
+      <a href="index.html" class="hud-btn primary">
+        <span>📄</span><span>2D版</span>
+      </a>
+    </div>
+  </header>
+
+  <div id="easter-toast" role="status" aria-live="polite"></div>
+  <div id="hover-tooltip" role="status" aria-live="polite"></div>
+
+  <!-- Compact Modal ONLY for 419 Score Stand -->
+  <div id="profile-modal" aria-hidden="true">
+    <div class="profile-card-box">
+      <div class="profile-top">
+        <h2>🏆 419 初试第一 · 个人情况</h2>
+        <button type="button" id="close-profile" class="bc-btn">✕ 关闭</button>
+      </div>
+      <div id="profile-modal-body"></div>
+    </div>
+  </div>
+
+  <script type="module" src="desk-3d.js?v=14"></script>
+</body>
+</html>
