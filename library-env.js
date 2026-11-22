@@ -137,10 +137,12 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
     const ctx = c.getContext('2d');
     const grad = ctx.createLinearGradient(0, 0, 0, 256);
     if (isNight) {
-      grad.addColorStop(0, '#070c1a');
-      grad.addColorStop(0.52, '#13203d');
-      grad.addColorStop(0.82, '#2d2638');
-      grad.addColorStop(1, '#52362a');
+      // Hopeful, luminous twilight-sapphire sky warming into golden-amber horizon!
+      grad.addColorStop(0.0, '#142347');
+      grad.addColorStop(0.38, '#233b6e');
+      grad.addColorStop(0.68, '#4e4c7d');
+      grad.addColorStop(0.88, '#9e686b');
+      grad.addColorStop(1.0, '#e3a576');
     } else {
       grad.addColorStop(0, '#7ea8d1');
       grad.addColorStop(0.52, '#d8c9b4');
@@ -496,16 +498,16 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
     outsideGroup.add(lamp);
   });
 
-  // ===== 6. Lightweight Hall Lighting (ONLY 2 Broad Warm Hall PointLights instead of 9!) =====
-  const frontHallLight = new THREE.PointLight('#ffbf72', 36, 36, 1.35);
-  frontHallLight.position.set(0, 5.2, -9.5);
+  // ===== Warm, Bright Inviting Library Lighting (Hopeful Golden Glow!) =====
+  const frontHallLight = new THREE.PointLight('#ffd294', 62, 48, 1.2);
+  frontHallLight.position.set(0, 6.2, -10.5);
   libGroup.add(frontHallLight);
 
-  const rearHallLight = new THREE.PointLight('#ffbf72', 30, 34, 1.35);
-  rearHallLight.position.set(0, 5.2, 9.5);
+  const rearHallLight = new THREE.PointLight('#ffd294', 54, 46, 1.2);
+  rearHallLight.position.set(0, 6.2, 10.5);
   libGroup.add(rearHallLight);
 
-  const windowLight = new THREE.DirectionalLight('#9ab8f5', 0.55);
+  const windowLight = new THREE.DirectionalLight('#c4dcff', 0.85);
   windowLight.position.set(-2.0, 8.5, FRONT_Z - 8.0);
   libGroup.add(windowLight);
 
@@ -1015,9 +1017,9 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
   function setOccupied(occupied) {
     hasPeople = !!occupied;
     studentsGroup.visible = hasPeople;
-    lampGreenShadeMat.emissiveIntensity = isNightMode ? (hasPeople ? 0.75 : 0.25) : 0.08;
-    frontHallLight.intensity = isNightMode ? (hasPeople ? 36 : 22) : 8;
-    rearHallLight.intensity = isNightMode ? (hasPeople ? 30 : 18) : 6;
+    lampGreenShadeMat.emissiveIntensity = isNightMode ? (hasPeople ? 0.95 : 0.45) : 0.08;
+    frontHallLight.intensity = isNightMode ? (hasPeople ? 62 : 44) : 14;
+    rearHallLight.intensity = isNightMode ? (hasPeople ? 54 : 38) : 12;
   }
 
   function setLightingMode(nightMode) {
@@ -1029,18 +1031,18 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
       m.map = isNightMode ? nightCityTexs[idx] : dayCityTexs[idx];
       m.needsUpdate = true;
     });
-    beaconMat.color.set(isNightMode ? '#ff4d4d' : '#7b8494');
+    beaconMat.color.set(isNightMode ? '#ff5959' : '#7b8494');
 
-    litWinMat.color.set(isNightMode ? '#ffd38c' : '#7a8a9e');
-    lanternMat.color.set(isNightMode ? '#ffe0a3' : '#d6cab6');
-    chandelierBulbMat.color.set(isNightMode ? '#ffdfaa' : '#fff5e4');
-    lampGreenShadeMat.emissiveIntensity = isNightMode ? (hasPeople ? 0.75 : 0.25) : 0.08;
+    litWinMat.color.set(isNightMode ? '#ffd996' : '#7a8a9e');
+    lanternMat.color.set(isNightMode ? '#ffe5ad' : '#d6cab6');
+    chandelierBulbMat.color.set(isNightMode ? '#ffebc4' : '#fff5e4');
+    lampGreenShadeMat.emissiveIntensity = isNightMode ? (hasPeople ? 0.95 : 0.45) : 0.08;
 
-    windowLight.color.set(isNightMode ? '#9ab8f5' : '#ffe4bd');
-    windowLight.intensity = isNightMode ? 0.55 : 1.55;
+    windowLight.color.set(isNightMode ? '#c4dcff' : '#ffe4bd');
+    windowLight.intensity = isNightMode ? 0.88 : 1.65;
 
-    frontHallLight.intensity = isNightMode ? (hasPeople ? 36 : 22) : 8;
-    rearHallLight.intensity = isNightMode ? (hasPeople ? 30 : 18) : 6;
+    frontHallLight.intensity = isNightMode ? (hasPeople ? 62 : 44) : 14;
+    rearHallLight.intensity = isNightMode ? (hasPeople ? 54 : 38) : 12;
   }
 
   function update(elapsed) {

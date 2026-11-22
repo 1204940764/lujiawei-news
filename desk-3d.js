@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=18';
-import { deskSound } from './desk-sound.js?v=18';
-import { createLibraryEnvironment } from './library-env.js?v=18';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=19';
+import { deskSound } from './desk-sound.js?v=19';
+import { createLibraryEnvironment } from './library-env.js?v=19';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -125,7 +125,7 @@ function getResponsivePreset() {
   return {
     isMobile: false,
     fov: 42,
-    fogDensity: 0.0038,
+    fogDensity: 0.0024,
     defaultCamPos: new THREE.Vector3(0.12, 4.1, 6.1),
     defaultTarget: new THREE.Vector3(0.05, 0.35, -0.45),
     heroScale: 1.44,
@@ -137,12 +137,12 @@ function getResponsivePreset() {
 
 let viewportPreset = getResponsivePreset();
 
-// ===== Scene, Camera, Renderer (HD PBR Stage Setup) =====
+// ===== Scene, Camera, Renderer (HD PBR Hopeful Twilight Library Setup) =====
 const scene = new THREE.Scene();
-const NIGHT_BG = new THREE.Color('#090809');
+const NIGHT_BG = new THREE.Color('#181f36');
 const DAY_BG = new THREE.Color('#e6dacd');
 scene.background = NIGHT_BG.clone();
-scene.fog = new THREE.FogExp2('#090809', viewportPreset.fogDensity);
+scene.fog = new THREE.FogExp2('#181f36', viewportPreset.fogDensity);
 
 const camera = new THREE.PerspectiveCamera(
   viewportPreset.fov,
@@ -1779,22 +1779,25 @@ let isLampOn = true;
 function updateLightingMode() {
   libraryEnv.setLightingMode(isLampOn);
   if (isLampOn) {
+    // Warm, luminous, hopeful evening library lighting (bright & inviting, never gloomy!)
     scene.background.copy(NIGHT_BG);
     scene.fog.color.copy(NIGHT_BG);
-    scene.environmentIntensity = 0.20;
-    stageKeySpot.intensity = 78;
-    stageRimSpot.intensity = 30;
-    stageBeamMat.opacity = 0.034;
-    lampSpot.intensity = 22;
-    lampBulbLight.intensity = 3.6;
-    bulbMat.emissiveIntensity = 2.2;
-    touchRingMat.emissiveIntensity = 1.4;
-    moteMat.opacity = 0.52;
-    ambientLight.intensity = 0.14;
-    hemiLight.intensity = 0.22;
-    fillLight.intensity = 0.16;
-    fillLight.color.set('#b7ccff');
-    rightWarmFill.intensity = 1.4;
+    scene.environmentIntensity = 0.44;
+    stageKeySpot.intensity = 68;
+    stageRimSpot.intensity = 28;
+    stageBeamMat.opacity = 0.028;
+    lampSpot.intensity = 26;
+    lampBulbLight.intensity = 4.6;
+    bulbMat.emissiveIntensity = 2.4;
+    touchRingMat.emissiveIntensity = 1.6;
+    moteMat.opacity = 0.58;
+    ambientLight.intensity = 0.46;
+    hemiLight.color.set('#ffebd0');
+    hemiLight.groundColor.set('#5c3e2b');
+    hemiLight.intensity = 0.58;
+    fillLight.intensity = 0.42;
+    fillLight.color.set('#dce8ff');
+    rightWarmFill.intensity = 2.6;
     document.body.classList.remove('day-mode');
   } else {
     scene.background.copy(DAY_BG);
