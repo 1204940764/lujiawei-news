@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=17';
-import { deskSound } from './desk-sound.js?v=17';
-import { createLibraryEnvironment } from './library-env.js?v=17';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=18';
+import { deskSound } from './desk-sound.js?v=18';
+import { createLibraryEnvironment } from './library-env.js?v=18';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -1649,8 +1649,7 @@ scene.add(dustMotes);
 // ===== Build Warm Brown University Library Environment =====
 const libraryEnv = createLibraryEnvironment(scene, maxAniso);
 
-// ===== First-Person WASD & Mouse-Look Library Roaming (Full Wall/Table/Column Collision + Footsteps) =====
-const FP_EYE_Y = -0.35; // Eye level (~2.67m above FLOOR_Y -3.02, comfortable standing height over desk)
+// ===== First-Person WASD & Mouse-Look Library Roaming (Same Eye Height as Desk View + Clickable Books!) =====
 const FP_RADIUS = 0.52;
 const colData = libraryEnv.getCollisionData();
 const fpBounds = colData.bounds;
@@ -1694,9 +1693,9 @@ function resolveFirstPersonCollision(x, z) {
 }
 
 let isRoamMode = false;
-const fpPos = new THREE.Vector3(0.0, FP_EYE_Y, 4.4);
-let roamYaw = 0;       // 0 = looking toward -Z (desk & panoramic city windows)
-let roamPitch = 0.04;  // positive = looking UP at skyscrapers, fireworks & ceiling!
+const fpPos = new THREE.Vector3(DEFAULT_CAM_POS.x, DEFAULT_CAM_POS.y, DEFAULT_CAM_POS.z);
+let roamYaw = 0;
+let roamPitch = -0.35;
 let fpWalkPhase = 0;
 let fpLastStepIdx = 0;
 let isRoamDragging = false;
@@ -1709,19 +1708,27 @@ function enterRoamMode() {
   isRoamMode = true;
   camAnim = null;
   controls.enabled = false;
-  tooltipEl.classList.remove('visible');
+
+  // Seamlessly inherit current camera position & height + look direction (zero sudden jump!)
+  const startXZ = resolveFirstPersonCollision(camera.position.x, camera.position.z);
+  fpPos.set(startXZ.x, DEFAULT_CAM_POS.y, startXZ.z);
+  const lookDir = new THREE.Vector3();
+  camera.getWorldDirection(lookDir);
+  roamYaw = Math.atan2(-lookDir.x, -lookDir.z);
+  roamPitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(lookDir.y, -0.95, 0.95)), -0.78, 0.72);
+
   roamToggleBtn.innerHTML = '<span>📚</span><span>回书桌</span>';
-  showEasterToast('🚶 第一人称漫游：WASD 移动 · Shift 加速 · 鼠标拖拽环顾四周 · ESC 回书桌', 3800);
+  showEasterToast('🚶 自由漫游：WASD 移动 · Shift 加速 · 拖拽转视角 · 可直接点击书本与物品', 3800);
 }
 
-function exitRoamMode() {
+function exitRoamMode(shouldResetCam = true) {
   if (!isRoamMode) return;
   isRoamMode = false;
   isRoamDragging = false;
   keysPressed.clear();
   controls.enabled = true;
   roamToggleBtn.innerHTML = '<span>🚶</span><span>漫游</span>';
-  resetCamera();
+  if (shouldResetCam) resetCamera();
 }
 
 roamToggleBtn.addEventListener('click', () => {
@@ -2044,16 +2051,13 @@ window.addEventListener('keydown', markInteractive);
 
 renderer.domElement.addEventListener('pointermove', (event) => {
   markInteractive();
-  if (isRoamMode) {
-    if (isRoamDragging) {
-      const dx = event.clientX - lastRoamMouse.x;
-      const dy = event.clientY - lastRoamMouse.y;
-      lastRoamMouse = { x: event.clientX, y: event.clientY };
-      roamYaw -= dx * 0.0046;
-      // Positive pitch looks UP at skyscrapers, fireworks & ceiling; negative looks down
-      roamPitch = THREE.MathUtils.clamp(roamPitch - dy * 0.0042, -0.78, 0.72);
-    }
-    renderer.domElement.style.cursor = isRoamDragging ? 'grabbing' : 'grab';
+  if (isRoamMode && isRoamDragging) {
+    const dx = event.clientX - lastRoamMouse.x;
+    const dy = event.clientY - lastRoamMouse.y;
+    lastRoamMouse = { x: event.clientX, y: event.clientY };
+    roamYaw -= dx * 0.0046;
+    roamPitch = THREE.MathUtils.clamp(roamPitch - dy * 0.0042, -0.78, 0.72);
+    renderer.domElement.style.cursor = 'grabbing';
     tooltipEl.classList.remove('visible');
     return;
   }
@@ -2115,20 +2119,19 @@ renderer.domElement.addEventListener('pointermove', (event) => {
 
 renderer.domElement.addEventListener('pointerdown', (event) => {
   markInteractive();
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  pointerDownPos = { x: event.clientX, y: event.clientY };
   if (isRoamMode) {
     isRoamDragging = true;
     lastRoamMouse = { x: event.clientX, y: event.clientY };
     return;
   }
-  if (event.button !== 0) return;
-  pointerDownPos = { x: event.clientX, y: event.clientY };
   camAnim = null;
 });
 
 renderer.domElement.addEventListener('pointerup', (event) => {
   if (isRoamMode) {
     isRoamDragging = false;
-    return;
   }
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   const dx = event.clientX - pointerDownPos.x;
@@ -2165,6 +2168,7 @@ renderer.domElement.addEventListener('pointerup', (event) => {
         flipBookPage(root.userData.id, -1);
       }
     } else {
+      if (isRoamMode) exitRoamMode(false);
       openBook(root.userData.data);
     }
   } else if (root.userData.type === 'lamp') {
@@ -2544,7 +2548,7 @@ function animate(now = performance.now()) {
       }
     }
 
-    const desiredCamPos = new THREE.Vector3(fpPos.x, FP_EYE_Y + headBob, fpPos.z);
+    const desiredCamPos = new THREE.Vector3(fpPos.x, DEFAULT_CAM_POS.y + headBob, fpPos.z);
     camera.position.lerp(desiredCamPos, Math.min(1, dt * 14));
 
     const lookDirX = -Math.sin(roamYaw) * Math.cos(roamPitch);
