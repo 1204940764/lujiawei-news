@@ -92,23 +92,41 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
     return tex;
   }
 
-  function createBuildingFacadeTexture(isNight) {
+  function createSkyscraperTexture(isNight, variant = 0) {
     const c = document.createElement('canvas');
     c.width = 256;
-    c.height = 256;
+    c.height = 512;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = isNight ? '#191c28' : '#535866';
-    ctx.fillRect(0, 0, 256, 256);
+    const baseColorsNight = ['#101522', '#141926', '#171a24'];
+    const baseColorsDay = ['#546173', '#616c7d', '#6d7582'];
+    ctx.fillStyle = isNight ? baseColorsNight[variant % 3] : baseColorsDay[variant % 3];
+    ctx.fillRect(0, 0, 256, 512);
 
-    ctx.fillStyle = isNight ? '#ffd38c' : '#96a8bf';
-    for (let r = 0; r < 6; r++) {
-      for (let col = 0; col < 6; col++) {
-        if ((r * 3 + col) % 4 === 0) continue;
-        ctx.fillRect(14 + col * 40, 16 + r * 40, 20, 24);
+    const winPaletteNight = [
+      ['#ffd58e', '#fff0cc', '#9ec8ff'],
+      ['#b5dcff', '#ffe2a8', '#e6f2ff'],
+      ['#ffca7a', '#ffad66', '#d6e8ff']
+    ][variant % 3];
+
+    const cols = variant === 1 ? 10 : 8;
+    const rows = variant === 1 ? 26 : 20;
+    const cw = 256 / cols;
+    const rh = 512 / rows;
+    let seed = (variant + 1) * 131;
+
+    for (let r = 1; r < rows - 1; r++) {
+      for (let col = 0; col < cols; col++) {
+        seed = (seed * 37 + 19) % 997;
+        if (isNight && seed % 3 === 0) continue; // Realistic dark unlit floors/rooms
+        ctx.fillStyle = isNight
+          ? winPaletteNight[seed % winPaletteNight.length]
+          : (seed % 2 === 0 ? '#9ab2cc' : '#859db8');
+        ctx.fillRect(col * cw + 4, r * rh + 4, cw - 8, rh - 8);
       }
     }
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     return tex;
   }
 
@@ -349,42 +367,82 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
   const nightSkyTex = createSkyPanoramaTexture(true);
   const daySkyTex = createSkyPanoramaTexture(false);
   const skyMat = new THREE.MeshBasicMaterial({ map: nightSkyTex, fog: false });
-  const skyPlane = new THREE.Mesh(new THREE.PlaneGeometry(110, 44), skyMat);
-  skyPlane.position.set(0, 11.0, FRONT_Z - 26.0);
+  const skyPlane = new THREE.Mesh(new THREE.PlaneGeometry(240, 96), skyMat);
+  skyPlane.position.set(0, 24.0, FRONT_Z - 88.0);
   outsideGroup.add(skyPlane);
 
   const campusGround = new THREE.Mesh(
-    new THREE.PlaneGeometry(110, 32),
-    new THREE.MeshLambertMaterial({ color: '#24291d' })
+    new THREE.PlaneGeometry(220, 92),
+    new THREE.MeshLambertMaterial({ color: '#1d2218' })
   );
   campusGround.rotation.x = -Math.PI / 2;
-  campusGround.position.set(0, FLOOR_Y + 0.05, FRONT_Z - 14.5);
+  campusGround.position.set(0, FLOOR_Y + 0.05, FRONT_Z - 46.0);
   outsideGroup.add(campusGround);
 
-  const nightBuildingTex = createBuildingFacadeTexture(true);
-  const dayBuildingTex = createBuildingFacadeTexture(false);
-  const buildingFacadeMat = new THREE.MeshBasicMaterial({ map: nightBuildingTex, fog: false });
-  const spireMat = new THREE.MeshBasicMaterial({ color: '#1a1d28', fog: false });
+  // Distant Towering Metropolitan City Skyline (26 skyscrapers across 2 depth layers!)
+  const nightCityTexs = [0, 1, 2].map((v) => createSkyscraperTexture(true, v));
+  const dayCityTexs = [0, 1, 2].map((v) => createSkyscraperTexture(false, v));
+  const cityMats = nightCityTexs.map((tex) => new THREE.MeshBasicMaterial({ map: tex, fog: false }));
+  const spireMat = new THREE.MeshBasicMaterial({ color: '#141826', fog: false });
+  const beaconMat = new THREE.MeshBasicMaterial({ color: '#ff4d4d', fog: false });
   const litWinMat = new THREE.MeshBasicMaterial({ color: '#ffd38c', fog: false });
 
-  [
-    { x: -13.5, w: 8.5, h: 7.5, z: FRONT_Z - 14.5 },
-    { x: -3.5, w: 5.5, h: 6.2, z: FRONT_Z - 15.2 },
-    { x: 3.2, w: 3.4, h: 11.5, z: FRONT_Z - 16.0, tower: true },
-    { x: 12.5, w: 9.2, h: 7.2, z: FRONT_Z - 14.2 }
-  ].forEach((b) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, 2.6), buildingFacadeMat);
+  const skyscrapers = [
+    // Mid-distance skyline band (z: FRONT_Z - 38 to -50)
+    { x: -58, w: 7.5, h: 24, d: 6.5, z: FRONT_Z - 44, v: 0 },
+    { x: -48, w: 6.2, h: 31, d: 6.0, z: FRONT_Z - 48, v: 1, spire: true },
+    { x: -39, w: 8.0, h: 21, d: 6.5, z: FRONT_Z - 41, v: 2 },
+    { x: -30, w: 6.4, h: 35, d: 6.2, z: FRONT_Z - 47, v: 1, spire: true },
+    { x: -22, w: 7.2, h: 25, d: 6.0, z: FRONT_Z - 42, v: 0 },
+    { x: -14, w: 5.8, h: 38, d: 5.8, z: FRONT_Z - 49, v: 1, spire: true },
+    { x: -6,  w: 7.4, h: 23, d: 6.0, z: FRONT_Z - 43, v: 2 },
+    { x: 3,   w: 6.6, h: 42, d: 6.6, z: FRONT_Z - 51, v: 1, spire: true, crown: true },
+    { x: 12,  w: 7.8, h: 27, d: 6.2, z: FRONT_Z - 44, v: 0 },
+    { x: 21,  w: 6.0, h: 36, d: 6.0, z: FRONT_Z - 48, v: 2, spire: true },
+    { x: 30,  w: 8.2, h: 22, d: 6.5, z: FRONT_Z - 42, v: 0 },
+    { x: 39,  w: 6.8, h: 33, d: 6.2, z: FRONT_Z - 47, v: 1, spire: true },
+    { x: 49,  w: 7.5, h: 26, d: 6.5, z: FRONT_Z - 43, v: 2 },
+    { x: 59,  w: 7.0, h: 30, d: 6.0, z: FRONT_Z - 48, v: 0 },
+
+    // Far towering financial-district mega-towers (z: FRONT_Z - 58 to -72)
+    { x: -64, w: 9.0, h: 34, d: 7.5, z: FRONT_Z - 64, v: 2 },
+    { x: -52, w: 8.2, h: 40, d: 7.5, z: FRONT_Z - 66, v: 0, spire: true },
+    { x: -41, w: 9.5, h: 32, d: 7.5, z: FRONT_Z - 62, v: 1 },
+    { x: -33, w: 7.6, h: 45, d: 7.2, z: FRONT_Z - 69, v: 0, spire: true },
+    { x: -24, w: 8.8, h: 36, d: 7.5, z: FRONT_Z - 63, v: 2 },
+    { x: -16, w: 7.4, h: 48, d: 7.4, z: FRONT_Z - 71, v: 1, spire: true, crown: true },
+    { x: -7,  w: 9.2, h: 34, d: 7.5, z: FRONT_Z - 64, v: 0 },
+    { x: 10,  w: 7.8, h: 46, d: 7.4, z: FRONT_Z - 70, v: 2, spire: true },
+    { x: 19,  w: 8.5, h: 35, d: 7.5, z: FRONT_Z - 63, v: 1 },
+    { x: 28,  w: 7.2, h: 44, d: 7.2, z: FRONT_Z - 68, v: 0, spire: true },
+    { x: 38,  w: 9.0, h: 33, d: 7.5, z: FRONT_Z - 62, v: 2 },
+    { x: 50,  w: 8.4, h: 41, d: 7.5, z: FRONT_Z - 67, v: 1, spire: true },
+    { x: 63,  w: 9.0, h: 36, d: 7.5, z: FRONT_Z - 65, v: 0 }
+  ];
+
+  const beaconGeo = new THREE.SphereGeometry(0.32, 8, 8);
+  skyscrapers.forEach((b) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), cityMats[b.v]);
     mesh.position.set(b.x, FLOOR_Y + b.h / 2, b.z);
     outsideGroup.add(mesh);
 
-    if (b.tower) {
-      const spire = new THREE.Mesh(new THREE.ConeGeometry(1.85, 3.2, 4), spireMat);
-      spire.rotation.y = Math.PI / 4;
-      spire.position.set(b.x, FLOOR_Y + b.h + 1.6, b.z);
+    if (b.crown) {
+      const crownTier = new THREE.Mesh(new THREE.BoxGeometry(b.w * 0.62, b.h * 0.16, b.d * 0.62), cityMats[b.v]);
+      crownTier.position.set(b.x, FLOOR_Y + b.h + b.h * 0.08, b.z);
+      outsideGroup.add(crownTier);
+    }
+
+    if (b.spire) {
+      const spireH = b.crown ? 9.5 : 6.2;
+      const topY = FLOOR_Y + b.h + (b.crown ? b.h * 0.16 : 0);
+      const spire = new THREE.Mesh(new THREE.ConeGeometry(0.45, spireH, 4), spireMat);
+      spire.position.set(b.x, topY + spireH / 2, b.z);
       outsideGroup.add(spire);
-      const clockFace = new THREE.Mesh(new THREE.CircleGeometry(0.68, 16), litWinMat);
-      clockFace.position.set(b.x, FLOOR_Y + b.h - 1.4, b.z + 1.32);
-      outsideGroup.add(clockFace);
+
+      // Subtle red aviation beacon at skyscraper tip
+      const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+      beacon.position.set(b.x, topY + spireH + 0.15, b.z);
+      outsideGroup.add(beacon);
     }
   });
 
@@ -746,9 +804,9 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
 
   function launchFirework() {
     const palette = FW_PALETTES[Math.floor(Math.random() * FW_PALETTES.length)];
-    const targetX = (Math.random() - 0.5) * 40;
-    const targetY = 4.2 + Math.random() * 6.4; // Big dazzling blooms right across the huge cathedral windows!
-    const targetZ = FRONT_Z - 11.5 - Math.random() * 6.5;
+    const targetX = (Math.random() - 0.5) * 48;
+    const targetY = 5.5 + Math.random() * 7.8; // Dazzling blooms rising high in front of the city skyline!
+    const targetZ = FRONT_Z - 16.0 - Math.random() * 10.0;
 
     const trailCount = 14;
     const trailPos = new Float32Array(trailCount * 3);
@@ -967,8 +1025,11 @@ export function createLibraryEnvironment(scene, maxAniso = 4) {
     skyMat.map = isNightMode ? nightSkyTex : daySkyTex;
     skyMat.needsUpdate = true;
 
-    buildingFacadeMat.map = isNightMode ? nightBuildingTex : dayBuildingTex;
-    buildingFacadeMat.needsUpdate = true;
+    cityMats.forEach((m, idx) => {
+      m.map = isNightMode ? nightCityTexs[idx] : dayCityTexs[idx];
+      m.needsUpdate = true;
+    });
+    beaconMat.color.set(isNightMode ? '#ff4d4d' : '#7b8494');
 
     litWinMat.color.set(isNightMode ? '#ffd38c' : '#7a8a9e');
     lanternMat.color.set(isNightMode ? '#ffe0a3' : '#d6cab6');

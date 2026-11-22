@@ -2,10 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=16';
-import { deskSound } from './desk-sound.js?v=16';
-import { createLibraryEnvironment } from './library-env.js?v=16';
-import { createPlayerAvatar } from './player-avatar.js?v=16';
+import { BOOKS_DATA, PROFILE_DATA } from './desk-data.js?v=17';
+import { deskSound } from './desk-sound.js?v=17';
+import { createLibraryEnvironment } from './library-env.js?v=17';
 
 // ===== DOM Elements =====
 const canvasContainer = document.getElementById('scene-container');
@@ -149,7 +148,7 @@ const camera = new THREE.PerspectiveCamera(
   viewportPreset.fov,
   window.innerWidth / window.innerHeight,
   0.1,
-  200
+  280
 );
 const DEFAULT_CAM_POS = viewportPreset.defaultCamPos.clone();
 const DEFAULT_TARGET = viewportPreset.defaultTarget.clone();
@@ -1650,17 +1649,56 @@ scene.add(dustMotes);
 // ===== Build Warm Brown University Library Environment =====
 const libraryEnv = createLibraryEnvironment(scene, maxAniso);
 
-// ===== Build Detailed Player Character + WASD & Mouse-Look Free-Roam Controller =====
-const playerAvatar = createPlayerAvatar(scene, {
-  collisionData: libraryEnv.getCollisionData(),
-  onFootstep: (isLeft, onCarpet) => deskSound.playFootstep(isLeft, onCarpet)
-});
-playerAvatar.root.visible = false; // Shown in 3rd-person Free Roam mode
+// ===== First-Person WASD & Mouse-Look Library Roaming (Full Wall/Table/Column Collision + Footsteps) =====
+const FP_EYE_Y = -0.35; // Eye level (~2.67m above FLOOR_Y -3.02, comfortable standing height over desk)
+const FP_RADIUS = 0.52;
+const colData = libraryEnv.getCollisionData();
+const fpBounds = colData.bounds;
+const fpObstacles = [
+  { minX: -4.75, maxX: 4.75, minZ: -2.65, maxZ: 2.65 }, // Hero study desk
+  ...colData.obstacles
+];
+
+function resolveFirstPersonCollision(x, z) {
+  let rx = THREE.MathUtils.clamp(x, fpBounds.minX + FP_RADIUS, fpBounds.maxX - FP_RADIUS);
+  let rz = THREE.MathUtils.clamp(z, fpBounds.minZ + FP_RADIUS, fpBounds.maxZ - FP_RADIUS);
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < fpObstacles.length; i++) {
+      const b = fpObstacles[i];
+      const cx = Math.max(b.minX, Math.min(rx, b.maxX));
+      const cz = Math.max(b.minZ, Math.min(rz, b.maxZ));
+      const dx = rx - cx;
+      const dz = rz - cz;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < FP_RADIUS * FP_RADIUS) {
+        if (d2 > 0.00001) {
+          const d = Math.sqrt(d2);
+          const push = FP_RADIUS - d;
+          rx += (dx / d) * push;
+          rz += (dz / d) * push;
+        } else {
+          const dL = Math.abs(rx - b.minX), dR = Math.abs(b.maxX - rx);
+          const dT = Math.abs(rz - b.minZ), dB = Math.abs(b.maxZ - rz);
+          const m = Math.min(dL, dR, dT, dB);
+          if (m === dL) rx = b.minX - FP_RADIUS;
+          else if (m === dR) rx = b.maxX + FP_RADIUS;
+          else if (m === dT) rz = b.minZ - FP_RADIUS;
+          else rz = b.maxZ + FP_RADIUS;
+        }
+      }
+    }
+    rx = THREE.MathUtils.clamp(rx, fpBounds.minX + FP_RADIUS, fpBounds.maxX - FP_RADIUS);
+    rz = THREE.MathUtils.clamp(rz, fpBounds.minZ + FP_RADIUS, fpBounds.maxZ - FP_RADIUS);
+  }
+  return { x: rx, z: rz };
+}
 
 let isRoamMode = false;
-let roamYaw = 0;       // Horizontal camera orbit angle around player (0 = looking -Z toward desk & windows)
-let roamPitch = 0.24;  // Vertical pitch (negative = looking UP at ceiling & fireworks!)
-let roamDist = 5.4;    // 3rd-person camera follow distance
+const fpPos = new THREE.Vector3(0.0, FP_EYE_Y, 4.4);
+let roamYaw = 0;       // 0 = looking toward -Z (desk & panoramic city windows)
+let roamPitch = 0.04;  // positive = looking UP at skyscrapers, fireworks & ceiling!
+let fpWalkPhase = 0;
+let fpLastStepIdx = 0;
 let isRoamDragging = false;
 let lastRoamMouse = { x: 0, y: 0 };
 const keysPressed = new Set();
@@ -1671,10 +1709,9 @@ function enterRoamMode() {
   isRoamMode = true;
   camAnim = null;
   controls.enabled = false;
-  playerAvatar.root.visible = true;
   tooltipEl.classList.remove('visible');
   roamToggleBtn.innerHTML = '<span>📚</span><span>回书桌</span>';
-  showEasterToast('🚶 进入自由漫游：WASD 移动 · Shift 加速 · 鼠标拖拽转视角 · ESC 回书桌', 3800);
+  showEasterToast('🚶 第一人称漫游：WASD 移动 · Shift 加速 · 鼠标拖拽环顾四周 · ESC 回书桌', 3800);
 }
 
 function exitRoamMode() {
@@ -1682,7 +1719,6 @@ function exitRoamMode() {
   isRoamMode = false;
   isRoamDragging = false;
   keysPressed.clear();
-  playerAvatar.root.visible = false;
   controls.enabled = true;
   roamToggleBtn.innerHTML = '<span>🚶</span><span>漫游</span>';
   resetCamera();
@@ -1699,7 +1735,6 @@ window.addEventListener('keydown', (e) => {
   if (['w', 'a', 's', 'd', 'shift'].includes(k)) {
     keysPressed.add(k);
     markInteractive();
-    // Pressing WASD at the desk (when no book is open) seamlessly enters Free Roam!
     if (!isRoamMode && !activeItemId && k !== 'shift') {
       enterRoamMode();
     }
@@ -1716,11 +1751,6 @@ window.addEventListener('blur', () => {
   keysPressed.clear();
   isRoamDragging = false;
 });
-
-renderer.domElement.addEventListener('wheel', (e) => {
-  if (!isRoamMode) return;
-  roamDist = THREE.MathUtils.clamp(roamDist + e.deltaY * 0.005, 3.0, 10.5);
-}, { passive: true });
 
 peopleToggleBtn.addEventListener('click', () => {
   const nextOccupied = !libraryEnv.isOccupied();
@@ -2019,9 +2049,9 @@ renderer.domElement.addEventListener('pointermove', (event) => {
       const dx = event.clientX - lastRoamMouse.x;
       const dy = event.clientY - lastRoamMouse.y;
       lastRoamMouse = { x: event.clientX, y: event.clientY };
-      roamYaw -= dx * 0.0052;
-      // Allow looking UP smoothly (-0.58 rad) at ceiling & fireworks, or down (+0.85 rad)
-      roamPitch = THREE.MathUtils.clamp(roamPitch + dy * 0.0045, -0.58, 0.85);
+      roamYaw -= dx * 0.0046;
+      // Positive pitch looks UP at skyscrapers, fireworks & ceiling; negative looks down
+      roamPitch = THREE.MathUtils.clamp(roamPitch - dy * 0.0042, -0.78, 0.72);
     }
     renderer.domElement.style.cursor = isRoamDragging ? 'grabbing' : 'grab';
     tooltipEl.classList.remove('visible');
@@ -2480,31 +2510,51 @@ function animate(now = performance.now()) {
   // Update library environment (outside autumn trees breeze + studying students + fireworks)
   libraryEnv.update(elapsed);
 
-  // Update 3rd-person player avatar & follow camera when in Free Roam mode
+  // Update First-Person WASD movement, head-bob, footsteps & mouse-look camera
   if (isRoamMode) {
     const moveForward = (keysPressed.has('w') ? 1 : 0) - (keysPressed.has('s') ? 1 : 0);
     const moveRight = (keysPressed.has('d') ? 1 : 0) - (keysPressed.has('a') ? 1 : 0);
-    const moveVec = new THREE.Vector3();
+    const isSprinting = keysPressed.has('shift');
+    let headBob = 0;
+
     if (moveForward !== 0 || moveRight !== 0) {
-      // Forward direction in world XZ plane from camera's roamYaw
       const fwdX = -Math.sin(roamYaw);
       const fwdZ = -Math.cos(roamYaw);
       const rightX = Math.cos(roamYaw);
       const rightZ = -Math.sin(roamYaw);
-      moveVec.set(fwdX * moveForward + rightX * moveRight, 0, fwdZ * moveForward + rightZ * moveRight).normalize();
-    }
-    playerAvatar.update(dt, elapsed, moveVec, keysPressed.has('shift'));
+      const mv = new THREE.Vector3(
+        fwdX * moveForward + rightX * moveRight,
+        0,
+        fwdZ * moveForward + rightZ * moveRight
+      ).normalize();
 
-    const focus = playerAvatar.getFocusPoint();
-    const horizDist = Math.cos(roamPitch) * roamDist;
-    const vertOffset = Math.sin(roamPitch) * roamDist;
-    const desiredCamPos = new THREE.Vector3(
-      THREE.MathUtils.clamp(focus.x + Math.sin(roamYaw) * horizDist, -31.5, 31.5),
-      THREE.MathUtils.clamp(focus.y + vertOffset, -2.2, 12.2),
-      THREE.MathUtils.clamp(focus.z + Math.cos(roamYaw) * horizDist, -25.8, 30.8)
+      const speed = isSprinting ? 8.4 : 4.8;
+      const resolved = resolveFirstPersonCollision(fpPos.x + mv.x * speed * dt, fpPos.z + mv.z * speed * dt);
+      fpPos.x = resolved.x;
+      fpPos.z = resolved.z;
+
+      // Subtle walking head-bob + stride-synced footsteps
+      fpWalkPhase += dt * (isSprinting ? 11.0 : 7.4);
+      headBob = Math.sin(fpWalkPhase) * 0.065;
+      const stepIdx = Math.floor(fpWalkPhase / Math.PI);
+      if (stepIdx !== fpLastStepIdx) {
+        fpLastStepIdx = stepIdx;
+        const onCarpet = Math.abs(fpPos.x) < 2.8 && fpPos.z > -25.0 && fpPos.z < 30.0;
+        deskSound.playFootstep(stepIdx % 2 === 0, onCarpet);
+      }
+    }
+
+    const desiredCamPos = new THREE.Vector3(fpPos.x, FP_EYE_Y + headBob, fpPos.z);
+    camera.position.lerp(desiredCamPos, Math.min(1, dt * 14));
+
+    const lookDirX = -Math.sin(roamYaw) * Math.cos(roamPitch);
+    const lookDirY = Math.sin(roamPitch);
+    const lookDirZ = -Math.cos(roamYaw) * Math.cos(roamPitch);
+    camera.lookAt(
+      camera.position.x + lookDirX * 10,
+      camera.position.y + lookDirY * 10,
+      camera.position.z + lookDirZ * 10
     );
-    camera.position.lerp(desiredCamPos, Math.min(1, dt * 10));
-    camera.lookAt(focus);
   } else {
     controls.update();
   }
